@@ -3,5 +3,11 @@ import "@/global.css";
 import { Stack } from "expo-router";
 
 export default function RootLayout() {
-  return <GluestackUIProvider mode="light"><Stack /></GluestackUIProvider>;
+  return (
+    <GluestackUIProvider mode="light">
+      <Stack>
+        <Stack.Screen name="index" options={{ title: "Dashboard" }} />
+      </Stack>
+    </GluestackUIProvider>
+  );
 }
