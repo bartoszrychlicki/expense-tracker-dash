@@ -1,158 +1,163 @@
-import { Box } from "@/components/ui/box";
-import { Card } from "@/components/ui/card";
-import { Divider } from "@/components/ui/divider";
-import { Heading } from "@/components/ui/heading";
-import { HStack } from "@/components/ui/hstack";
-import { Text } from "@/components/ui/text";
-import { VStack } from "@/components/ui/vstack";
+/**
+ * Dashboard Screen
+ * 
+ * Main dashboard component that displays budget information
+ * and recent transactions with proper loading and error states.
+ */
 
-import React, { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import React from 'react';
+import { ScrollView, View } from 'react-native';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { VStack } from '@/components/ui/vstack';
+import { Divider } from '@/components/ui/divider';
+import { Box } from '@/components/ui/box';
+import { Text } from '@/components/ui/text';
 
-// TODO: replace with your Airtable Base ID
-const AIRTABLE_BASE_ID = "appFKp3PqUbg7tcxe";
-const AIRTABLE_TABLE_NAME = "days";
-const AIRTABLE_TRANSACTIONS_TABLE = "transactions";
-// Authorization token provided by Airtable
-const AIRTABLE_API_KEY = "pateg4IGkbM6zAoZU.312eb8dfc60d6f1274fd43d9acc80b5a9d94d11bb2bb598f4d63bc6819a82171";
+// Custom components
+import { 
+  BudgetCard, 
+  TransactionItem, 
+  LoadingSpinner, 
+  ErrorDisplay 
+} from '@/src/components';
 
-interface Transaction {
-  id: string;
-  Name: string;
-  Ai_Category: string;
-  Value: string;
-  Date: string;
-}
+// Custom hooks and services
+import { useDashboardData } from '@/src/hooks/useDashboardData';
 
-export default function Index() {
-  const [dailyBudgetLeft, setDailyBudgetLeft] = useState<string>();
-  const [dailySpentSum, setDailySpentSum] = useState<string>();
-  const [todaysVariableDailyLimit, setTodaysVariableDailyLimit] = useState<string>();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+// Constants
+import { UI_TEXT, UI_CONFIG } from '@/src/constants/ui';
 
-  useEffect(() => {
-    async function fetchLatestDayRecord() {
-      const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?sort[0][field]=Created at&sort[0][direction]=desc&maxRecords=1`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        },
-      });
-      const data = await response.json();
-      if (data.records?.length) {
-        const fields = data.records[0].fields;
-        setDailyBudgetLeft(fields["Daily budget left"]?.toString());
-        setDailySpentSum(fields["Daily spent sum"]?.toString());
-        setTodaysVariableDailyLimit(fields["Todays variable daily limit"]?.toString());
-      }
-    }
+/**
+ * Main Dashboard Component
+ * 
+ * Displays:
+ * - Daily budget information (remaining, total, spent)
+ * - Recent transactions list
+ * - Loading and error states
+ */
+export default function DashboardScreen() {
+  const { data, isLoading, error, refetch } = useDashboardData();
 
-    async function fetchTransactions() {
-      const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TRANSACTIONS_TABLE}?sort[0][field]=transaction date&sort[0][direction]=desc&maxRecords=10`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-        },
-      });
-      const data = await response.json();
-      if (data.records?.length) {
-        const transactionsData = data.records.map((record: any) => ({
-          id: record.id,
-          Name: record.fields.Name || "",
-          Ai_Category: record.fields.Ai_Category || "",
-          Value: record.fields.Value?.toString() || "",
-          Date: record.fields["transaction date"] || "",
-        }));
-        setTransactions(transactionsData);
-      }
-    }
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-background-0">
+        <LoadingSpinner message={UI_TEXT.LOADING.FETCHING_DATA} />
+      </View>
+    );
+  }
 
-    fetchLatestDayRecord();
-    fetchTransactions();
-  }, []);
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1 bg-background-0">
+        <ErrorDisplay 
+          message={error} 
+          onRetry={refetch}
+        />
+      </View>
+    );
+  }
 
+  // Show main content
   return (
     <View className="flex-1 bg-background-0">
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={true}>
         <View className="pt-8">
-        <Heading size="md" className="mb-3">
-            Budget na dziś
+          {/* Dashboard Title */}
+          <Heading size="md" className="mb-3">
+            {UI_TEXT.DASHBOARD.TITLE}
           </Heading>
-          <Card size="lg" variant="outline" className="mb-4">
-            <Heading size="lg" className="mb-1">
-              {dailyBudgetLeft ?? "--"} PLN
-            </Heading>
-            <Text size="sm" className="text-typography-600">
-              Zostało na dzisiaj
-            </Text>
-          </Card>
-          <HStack space="md" className="mb-4">
-            <Card size="lg" variant="outline" className="flex-1">
-              <Heading size="lg" className="mb-1">
-                {todaysVariableDailyLimit ?? "--"} PLN
-              </Heading>
-              <Text size="sm" className="text-typography-600">
-                Całkowity budzet na dziś
-              </Text>
-            </Card>
-            <Card size="lg" variant="outline" className="flex-1">
-              <Heading size="lg" className="mb-1">
-                {dailySpentSum ?? "--"} PLN
-              </Heading>
-              <Text size="sm" className="text-typography-600">
-                Wydałem dzisiaj
-              </Text>
-            </Card>
-          </HStack>
 
-          
-          <VStack
-            className="border border-border-300 rounded-lg px-4 py-6 items-center justify-between"
-            space="sm"
-          >
-            <Box className="self-start w-full px-4">
-              <Heading
-                size="lg"
-                className="font-roboto text-typography-700"
-              >
-                10 ostatnich transakcji
-              </Heading>
-            </Box>
-            <Divider />
-            {transactions.map((transaction, index) => {
-              const isPositive = parseFloat(transaction.Value) > 0;
-              return (
-                <HStack space="lg" key={transaction.id} className="w-full px-4 py-2 items-center">
-                  <Box 
-                    className={`rounded-full h-12 w-12 items-center justify-center ${
-                      isPositive ? 'bg-error-100' : 'bg-success-100'
-                    }`}
-                  >
-                    <Text 
-                      className={`text-sm font-medium ${
-                        isPositive ? 'text-error-800' : 'text-success-800'
-                      }`}
-                    >
-                      {transaction.Value}
-                    </Text>
-                  </Box>
-                  <VStack className="flex-1">
-                    <Text className="text-xs text-typography-500 mb-1">
-                      {transaction.Date}
-                    </Text>
-                    <Text className="text-typography-900 font-roboto line-clamp-1">
-                      {transaction.Name}
-                    </Text>
-                    <Text className="text-sm font-roboto line-clamp-1">
-                      {transaction.Ai_Category}
-                    </Text>
-                  </VStack>
-                </HStack>
-              );
-            })}
-          </VStack>
+          {/* Budget Cards Section */}
+          <BudgetCardsSection data={data} />
+
+          {/* Transactions Section */}
+          <TransactionsSection data={data} />
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Budget Cards Section Component
+ * 
+ * Displays the main budget information cards including
+ * remaining budget, total budget, and spent amount.
+ */
+function BudgetCardsSection({ data }: { data: any }) {
+  if (!data?.dailyBudget) return null;
+
+  const { budgetLeft, totalLimit, spentSum } = data.dailyBudget;
+
+  return (
+    <>
+      {/* Main Budget Card */}
+      <BudgetCard
+        value={budgetLeft}
+        label={UI_TEXT.DASHBOARD.REMAINING_BUDGET}
+        className="mb-4"
+      />
+
+      {/* Budget Summary Cards */}
+      <HStack space="md" className="mb-4">
+        <BudgetCard
+          value={totalLimit}
+          label={UI_TEXT.DASHBOARD.TOTAL_BUDGET}
+          className="flex-1"
+        />
+        <BudgetCard
+          value={spentSum}
+          label={UI_TEXT.DASHBOARD.SPENT_TODAY}
+          className="flex-1"
+        />
+      </HStack>
+    </>
+  );
+}
+
+/**
+ * Transactions Section Component
+ * 
+ * Displays the list of recent transactions with
+ * proper formatting and styling.
+ */
+function TransactionsSection({ data }: { data: any }) {
+  if (!data?.transactions) return null;
+
+  const { transactions } = data;
+
+  return (
+    <VStack
+      className="border border-border-300 rounded-lg px-4 py-6 items-center justify-between"
+      space="sm"
+    >
+      {/* Section Header */}
+      <Box className="self-start w-full px-4">
+        <Heading size="lg" className="font-roboto text-typography-700">
+          {UI_TEXT.DASHBOARD.RECENT_TRANSACTIONS}
+        </Heading>
+      </Box>
+      
+      <Divider />
+
+      {/* Transactions List */}
+      {transactions.length > 0 ? (
+        transactions.map((transaction: any) => (
+          <TransactionItem
+            key={transaction.id}
+            transaction={transaction}
+          />
+        ))
+      ) : (
+        <Box className="w-full px-4 py-8 items-center">
+          <Text className="text-typography-500">
+            {UI_TEXT.PLACEHOLDERS.NO_TRANSACTIONS}
+          </Text>
+        </Box>
+      )}
+    </VStack>
   );
 }
