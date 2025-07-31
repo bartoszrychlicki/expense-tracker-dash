@@ -7,12 +7,13 @@
 
 import { AIRTABLE_CONFIG, API_CONFIG } from '@/config/constants';
 import {
-  Transaction,
-  DailyBudget,
-  AirtableResponse,
-  AirtableTransactionFields,
-  AirtableDailyBudgetFields,
-  ApiError,
+    AirtableDailyBudgetFields,
+    AirtablePlannedTransactionFields,
+    AirtableResponse,
+    AirtableTransactionFields,
+    DailyBudget,
+    PlannedTransaction,
+    Transaction
 } from '@/types';
 
 /**
@@ -126,6 +127,34 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
     }));
   } catch (error) {
     console.error('Error fetching transactions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches planned transactions from Airtable
+ */
+export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> {
+  try {
+    const endpoint = `${AIRTABLE_CONFIG.TABLES.PLANNED_TRANSACTIONS}?sort[0][field]=Created&sort[0][direction]=desc`;
+    const data = await makeAirtableRequest<AirtableResponse<AirtablePlannedTransactionFields>>(endpoint);
+
+    if (!data.records?.length) {
+      return [];
+    }
+
+    return data.records.map((record): PlannedTransaction => ({
+      id: record.id,
+      Name: record.fields.Name || '',
+      Value: record.fields.Value?.toString() || '',
+      URL: record.fields.URL || '',
+      Created: record.fields.Created || '',
+      NumberOfHundreds: record.fields._NumberOfHundreds || 0,
+      Decision_date: record.fields.Decision_date || '',
+      Decision: record.fields.Decision || '',
+    }));
+  } catch (error) {
+    console.error('Error fetching planned transactions:', error);
     throw error;
   }
 }

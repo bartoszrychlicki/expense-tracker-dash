@@ -31,6 +31,28 @@ export interface DailyBudget {
 }
 
 /**
+ * Represents a planned transaction from Airtable
+ */
+export interface PlannedTransaction {
+  /** Unique identifier for the planned transaction */
+  id: string;
+  /** Transaction name/description */
+  Name: string;
+  /** Transaction value as string */
+  Value: string;
+  /** URL to the product (optional) */
+  URL?: string;
+  /** Creation date */
+  Created: string;
+  /** Number of hundreds (automatically calculated) */
+  NumberOfHundreds: number;
+  /** Decision date */
+  Decision_date: string;
+  /** Decision status */
+  Decision: string;
+}
+
+/**
  * Airtable API response structure for records
  */
 export interface AirtableRecord<T = any> {
@@ -70,6 +92,20 @@ export interface AirtableDailyBudgetFields {
   'Daily spent sum'?: number | string;
   'Todays variable daily limit'?: number | string;
   'Created at'?: string;
+}
+
+/**
+ * Raw planned transaction fields from Airtable
+ */
+export interface AirtablePlannedTransactionFields {
+  id?: number;
+  Name?: string;
+  Value?: number | string;
+  URL?: string;
+  Created?: string;
+  _NumberOfHundreds?: number;
+  Decision_date?: string;
+  Decision?: string;
 }
 
 /**

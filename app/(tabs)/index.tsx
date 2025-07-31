@@ -31,7 +31,6 @@ export default function Index() {
     transactions,
     budgetLoading,
     transactionsLoading,
-    refreshData,
   } = useBudgetData();
 
   return (
