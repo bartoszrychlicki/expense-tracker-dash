@@ -5,14 +5,15 @@
  * Provides a clean, organized view of transaction history.
  */
 
-import React from 'react';
 import { Box } from '@/components/ui/box';
-import { VStack } from '@/components/ui/vstack';
+import { Divider } from '@/components/ui/divider';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { Divider } from '@/components/ui/divider';
-import { Transaction, LoadingState } from '@/types';
+import { VStack } from '@/components/ui/vstack';
+import { LoadingState, Transaction } from '@/types';
+import React from 'react';
 import { TransactionItem } from './TransactionItem';
+import { TransactionItemSkeleton } from './TransactionItemSkeleton';
 
 interface TransactionsListProps {
   /** Array of transactions to display */
@@ -50,8 +51,10 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
 
       {/* Content */}
       {loadingState.isLoading ? (
-        <Box className="w-full px-4 py-8 items-center">
-          <Text className="text-typography-500">Ładowanie transakcji...</Text>
+        <Box className="w-full">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <TransactionItemSkeleton key={index} />
+          ))}
         </Box>
       ) : loadingState.error ? (
         <Box className="w-full px-4 py-8 items-center">

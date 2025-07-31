@@ -42,13 +42,22 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
           isPositive ? 'bg-success-100' : 'bg-error-100'
         }`}
       >
-        <Text 
-          className={`text-sm font-medium ${
-            isPositive ? 'text-success-800' : 'text-error-800'
-          }`}
-        >
-          {isPositive ? '+' : ''}{formattedValue}
-        </Text>
+        <VStack className="items-center justify-center" space="xs">
+          <Text 
+            className={`text-xs font-medium leading-tight ${
+              isPositive ? 'text-success-800' : 'text-error-800'
+            }`}
+          >
+            {isPositive ? '+' : ''}{formattedValue}
+          </Text>
+          <Text 
+            className={`text-xs font-normal leading-tight ${
+              isPositive ? 'text-success-600' : 'text-error-600'
+            }`}
+          >
+            PLN
+          </Text>
+        </VStack>
       </Box>
 
       {/* Transaction Details */}

@@ -11,3 +11,36 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Skeleton loading animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0.3;
+  }
+}
+
+.skeleton-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Pulse animation for skeleton elements */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeleton-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}

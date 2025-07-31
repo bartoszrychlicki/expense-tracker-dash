@@ -5,15 +5,15 @@
  * and recent transactions. Uses proper component composition and state management.
  */
 
-import React, { useEffect } from 'react';
-import { ScrollView, View } from 'react-native';
-import { Heading } from '@/components/ui/heading';
+import { BudgetCard } from '@/components/BudgetCard';
+import { BudgetCardSkeleton } from '@/components/BudgetCardSkeleton';
+import { TransactionsList } from '@/components/TransactionsList';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
-import { BudgetCard } from '@/components/BudgetCard';
-import { TransactionsList } from '@/components/TransactionsList';
-import { useBudgetData } from '@/hooks/useBudgetData';
 import { validateEnvironmentVariables } from '@/config/constants';
+import { useBudgetData } from '@/hooks/useBudgetData';
+import React, { useEffect } from 'react';
+import { ScrollView, View } from 'react-native';
 
 export default function Index() {
   // Validate environment variables on component mount
@@ -39,15 +39,10 @@ export default function Index() {
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={true}>
         <View className="pt-8">
           {/* Page Header */}
-          <Heading size="md" className="mb-3">
-            Budget na dziś
-          </Heading>
 
           {/* Main Budget Card */}
           {budgetLoading.isLoading ? (
-            <View className="mb-4 p-6 border border-border-300 rounded-lg items-center">
-              <Text className="text-typography-500">Ładowanie budżetu...</Text>
-            </View>
+            <BudgetCardSkeleton />
           ) : budgetLoading.error ? (
             <View className="mb-4 p-6 border border-error-300 rounded-lg items-center">
               <Text className="text-error-600 text-center">
@@ -63,16 +58,25 @@ export default function Index() {
 
           {/* Budget Summary Cards */}
           <HStack space="md" className="mb-4">
-            <BudgetCard
-              value={dailyBudget.todaysVariableDailyLimit}
-              label="Całkowity budżet na dziś"
-              className="flex-1 mb-0"
-            />
-            <BudgetCard
-              value={dailyBudget.dailySpentSum}
-              label="Wydałem dzisiaj"
-              className="flex-1 mb-0"
-            />
+            {budgetLoading.isLoading ? (
+              <>
+                <BudgetCardSkeleton size="md" className="flex-1 mb-0" />
+                <BudgetCardSkeleton size="md" className="flex-1 mb-0" />
+              </>
+            ) : (
+              <>
+                <BudgetCard
+                  value={dailyBudget.todaysVariableDailyLimit}
+                  label="Całkowity budżet na dziś"
+                  className="flex-1 mb-0"
+                />
+                <BudgetCard
+                  value={dailyBudget.dailySpentSum}
+                  label="Wydałem dzisiaj"
+                  className="flex-1 mb-0"
+                />
+              </>
+            )}
           </HStack>
 
           {/* Transactions List */}

@@ -146,5 +146,5 @@ export function formatTransactionValue(value: string): string {
   if (isNaN(numericValue)) {
     return value;
   }
-  return numericValue.toFixed(2);
+  return Math.round(numericValue).toString();
 }
