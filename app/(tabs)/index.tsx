@@ -46,12 +46,16 @@ export default function Index() {
   // Use toast hook
   const toast = useToast();
 
+  // Loading state for goal saving
+  const [isSavingToGoal, setIsSavingToGoal] = React.useState(false);
+
   /**
    * Handles saving to goal
    */
   const handleSaveToGoal = async (amount: number) => {
-    if (!currentGoal) return;
+    if (!currentGoal || isSavingToGoal) return;
     
+    setIsSavingToGoal(true);
     try {
       await createGoalTransaction(currentGoal.Name, amount);
       toast.showSuccess(
@@ -66,6 +70,8 @@ export default function Index() {
         'Błąd',
         'Nie udało się odłożyć środków na cel. Spróbuj ponownie.'
       );
+    } finally {
+      setIsSavingToGoal(false);
     }
   };
 
@@ -120,6 +126,7 @@ export default function Index() {
             isLoading={goalLoading.isLoading}
             dailyBudget={dailyBudget.todaysVariableDailyLimit}
             onSaveToGoal={handleSaveToGoal}
+            isSavingToGoal={isSavingToGoal}
           />
 
           {/* Transactions List */}

@@ -21,6 +21,8 @@ interface CurrentGoalCardProps {
   dailyBudget?: string;
   /** Function to handle goal savings */
   onSaveToGoal?: (amount: number) => Promise<void>;
+  /** Loading state for saving to goal */
+  isSavingToGoal?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
   isLoading = false,
   dailyBudget,
   onSaveToGoal,
+  isSavingToGoal = false,
 }) => {
   // Mock progress value (to be set later)
   const progressPercentage = 35; // 35% progress
@@ -145,11 +148,14 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           
           <HStack space="sm" className="justify-between">
             <TouchableOpacity 
-              className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
+              className={`flex-1 py-3 px-4 rounded-lg items-center ${
+                isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
+              }`}
               onPress={() => handleSaveToGoal(5)}
+              disabled={isSavingToGoal}
             >
               <Text className="text-white font-medium text-sm">
-                Odłóż 5%
+                {isSavingToGoal ? 'Zapisuję...' : 'Odłóż 5%'}
               </Text>
               <Text className="text-white text-xs opacity-90">
                 ({calculateAmount(5)} PLN)
@@ -157,11 +163,14 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             </TouchableOpacity>
             
             <TouchableOpacity 
-              className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
+              className={`flex-1 py-3 px-4 rounded-lg items-center ${
+                isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
+              }`}
               onPress={() => handleSaveToGoal(10)}
+              disabled={isSavingToGoal}
             >
               <Text className="text-white font-medium text-sm">
-                Odłóż 10%
+                {isSavingToGoal ? 'Zapisuję...' : 'Odłóż 10%'}
               </Text>
               <Text className="text-white text-xs opacity-90">
                 ({calculateAmount(10)} PLN)
@@ -169,11 +178,14 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             </TouchableOpacity>
             
             <TouchableOpacity 
-              className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
+              className={`flex-1 py-3 px-4 rounded-lg items-center ${
+                isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
+              }`}
               onPress={() => handleSaveToGoal(15)}
+              disabled={isSavingToGoal}
             >
               <Text className="text-white font-medium text-sm">
-                Odłóż 15%
+                {isSavingToGoal ? 'Zapisuję...' : 'Odłóż 15%'}
               </Text>
               <Text className="text-white text-xs opacity-90">
                 ({calculateAmount(15)} PLN)
