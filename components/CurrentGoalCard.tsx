@@ -19,6 +19,8 @@ interface CurrentGoalCardProps {
   isLoading?: boolean;
   /** Daily budget amount for calculations */
   dailyBudget?: string;
+  /** Function to handle goal savings */
+  onSaveToGoal?: (amount: number) => Promise<void>;
 }
 
 /**
@@ -28,6 +30,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
   goal,
   isLoading = false,
   dailyBudget,
+  onSaveToGoal,
 }) => {
   // Mock progress value (to be set later)
   const progressPercentage = 35; // 35% progress
@@ -40,6 +43,22 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
     const budgetValue = parseFloat(dailyBudget);
     if (isNaN(budgetValue)) return '0';
     return Math.round((budgetValue * percentage) / 100).toString();
+  };
+
+  /**
+   * Handles saving to goal
+   */
+  const handleSaveToGoal = async (percentage: number) => {
+    if (!onSaveToGoal || !goal) return;
+    
+    const amount = parseInt(calculateAmount(percentage));
+    if (amount <= 0) return;
+
+    try {
+      await onSaveToGoal(amount);
+    } catch (error) {
+      console.error('Error saving to goal:', error);
+    }
   };
 
   if (isLoading) {
@@ -127,7 +146,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           <HStack space="sm" className="justify-between">
             <TouchableOpacity 
               className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
-              onPress={() => console.log('Odłóż 5% na cel')}
+              onPress={() => handleSaveToGoal(5)}
             >
               <Text className="text-white font-medium text-sm">
                 Odłóż 5%
@@ -139,7 +158,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             
             <TouchableOpacity 
               className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
-              onPress={() => console.log('Odłóż 10% na cel')}
+              onPress={() => handleSaveToGoal(10)}
             >
               <Text className="text-white font-medium text-sm">
                 Odłóż 10%
@@ -151,7 +170,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             
             <TouchableOpacity 
               className="flex-1 bg-primary-600 py-3 px-4 rounded-lg items-center"
-              onPress={() => console.log('Odłóż 15% na cel')}
+              onPress={() => handleSaveToGoal(15)}
             >
               <Text className="text-white font-medium text-sm">
                 Odłóż 15%

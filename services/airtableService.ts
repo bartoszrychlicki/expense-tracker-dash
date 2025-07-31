@@ -7,13 +7,13 @@
 
 import { AIRTABLE_CONFIG, API_CONFIG } from '@/config/constants';
 import {
-    AirtableDailyBudgetFields,
-    AirtablePlannedTransactionFields,
-    AirtableResponse,
-    AirtableTransactionFields,
-    DailyBudget,
-    PlannedTransaction,
-    Transaction
+  AirtableDailyBudgetFields,
+  AirtablePlannedTransactionFields,
+  AirtableResponse,
+  AirtableTransactionFields,
+  DailyBudget,
+  PlannedTransaction,
+  Transaction
 } from '@/types';
 
 /**
@@ -156,6 +156,36 @@ export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> 
     }));
   } catch (error) {
     console.error('Error fetching planned transactions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Creates a new transaction for goal savings
+ */
+export async function createGoalTransaction(
+  goalName: string,
+  amount: number
+): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const transactionData = {
+      fields: {
+        Name: goalName,
+        Value: amount,
+        'transaction date': today,
+        '_to_account': 'Goals',
+      }
+    };
+
+    const endpoint = AIRTABLE_CONFIG.TABLES.TRANSACTIONS;
+    await makeAirtableRequest(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+  } catch (error) {
+    console.error('Error creating goal transaction:', error);
     throw error;
   }
 }

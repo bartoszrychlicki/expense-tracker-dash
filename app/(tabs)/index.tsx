@@ -14,6 +14,8 @@ import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
 import { useBudgetData } from '@/hooks/useBudgetData';
 import { useCurrentGoal } from '@/hooks/useCurrentGoal';
+import { useToast } from '@/hooks/useToast';
+import { createGoalTransaction } from '@/services/airtableService';
 import React, { useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -40,6 +42,32 @@ export default function Index() {
     currentGoal,
     loadingState: goalLoading,
   } = useCurrentGoal();
+
+  // Use toast hook
+  const toast = useToast();
+
+  /**
+   * Handles saving to goal
+   */
+  const handleSaveToGoal = async (amount: number) => {
+    if (!currentGoal) return;
+    
+    try {
+      await createGoalTransaction(currentGoal.Name, amount);
+      toast.showSuccess(
+        'Środki odłożone!',
+        `Odłożono ${amount} PLN na cel: ${currentGoal.Name}`
+      );
+      // Optionally refresh data after saving
+      // await refreshData();
+    } catch (error) {
+      console.error('Error saving to goal:', error);
+      toast.showError(
+        'Błąd',
+        'Nie udało się odłożyć środków na cel. Spróbuj ponownie.'
+      );
+    }
+  };
 
   return (
     <View className="flex-1 bg-background-0">
@@ -91,6 +119,7 @@ export default function Index() {
             goal={currentGoal}
             isLoading={goalLoading.isLoading}
             dailyBudget={dailyBudget.todaysVariableDailyLimit}
+            onSaveToGoal={handleSaveToGoal}
           />
 
           {/* Transactions List */}
