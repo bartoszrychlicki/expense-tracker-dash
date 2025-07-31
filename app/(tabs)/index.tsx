@@ -7,11 +7,13 @@
 
 import { BudgetCard } from '@/components/BudgetCard';
 import { BudgetCardSkeleton } from '@/components/BudgetCardSkeleton';
+import { CurrentGoalCard } from '@/components/CurrentGoalCard';
 import { TransactionsList } from '@/components/TransactionsList';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
 import { useBudgetData } from '@/hooks/useBudgetData';
+import { useCurrentGoal } from '@/hooks/useCurrentGoal';
 import React, { useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -32,6 +34,12 @@ export default function Index() {
     budgetLoading,
     transactionsLoading,
   } = useBudgetData();
+
+  // Use custom hook for current goal
+  const {
+    currentGoal,
+    loadingState: goalLoading,
+  } = useCurrentGoal();
 
   return (
     <View className="flex-1 bg-background-0">
@@ -77,6 +85,13 @@ export default function Index() {
               </>
             )}
           </HStack>
+
+          {/* Current Goal Card */}
+          <CurrentGoalCard
+            goal={currentGoal}
+            isLoading={goalLoading.isLoading}
+            dailyBudget={dailyBudget.todaysVariableDailyLimit}
+          />
 
           {/* Transactions List */}
           <TransactionsList

@@ -69,9 +69,18 @@ export const PlannedTransactionItem: React.FC<PlannedTransactionItemProps> = ({
         {/* Header with name and value */}
         <HStack justifyContent="space-between" alignItems="flex-start">
           <View className="flex-1 mr-3">
-            <Text className="text-lg font-semibold text-text-900 mb-1">
-              {transaction.Name}
-            </Text>
+            <HStack alignItems="center" space="sm" className="mb-1">
+              <Text className="text-lg font-semibold text-text-900">
+                {transaction.Name}
+              </Text>
+              {transaction.Currently_selected_goal && (
+                <View className="px-2 py-1 rounded-full bg-success-100 border border-success-300">
+                  <Text className="text-success-700 text-xs font-medium">
+                    Aktualny cel
+                  </Text>
+                </View>
+              )}
+            </HStack>
             {transaction.URL && (
               <TouchableOpacity onPress={handleOpenURL}>
                 <Text className="text-primary-600 text-sm underline">

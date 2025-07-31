@@ -50,6 +50,8 @@ export interface PlannedTransaction {
   Decision_date: string;
   /** Decision status */
   Decision: string;
+  /** Whether this is the currently selected goal */
+  Currently_selected_goal?: boolean;
 }
 
 /**
@@ -106,6 +108,7 @@ export interface AirtablePlannedTransactionFields {
   _NumberOfHundreds?: number;
   Decision_date?: string;
   Decision?: string;
+  Currently_selected_goal?: boolean;
 }
 
 /**

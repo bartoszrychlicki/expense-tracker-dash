@@ -21,7 +21,10 @@ export const PlannedTransactionItemSkeleton: React.FC = () => {
         {/* Header skeleton */}
         <HStack justifyContent="space-between" alignItems="flex-start">
           <View className="flex-1 mr-3">
-            <Skeleton className="h-6 w-3/4 mb-2" />
+            <HStack alignItems="center" space="sm" className="mb-2">
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </HStack>
             <Skeleton className="h-4 w-1/3" />
           </View>
           <VStack alignItems="flex-end">

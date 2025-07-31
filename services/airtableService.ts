@@ -152,6 +152,7 @@ export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> 
       NumberOfHundreds: record.fields._NumberOfHundreds || 0,
       Decision_date: record.fields.Decision_date || '',
       Decision: record.fields.Decision || '',
+      Currently_selected_goal: record.fields.Currently_selected_goal || false,
     }));
   } catch (error) {
     console.error('Error fetching planned transactions:', error);
