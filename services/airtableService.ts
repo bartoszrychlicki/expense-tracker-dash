@@ -13,6 +13,7 @@ import {
   AirtableResponse,
   AirtableTransactionFields,
   DailyBudget,
+  NewTransaction,
   PlannedTransaction,
   Transaction
 } from '@/types';
@@ -118,7 +119,7 @@ export async function fetchLatestDailyBudget(): Promise<DailyBudget> {
  */
 export async function fetchRecentTransactions(): Promise<Transaction[]> {
   try {
-    const filterFormula = "OR(category_type='Expense', category_type='Income')";
+    const filterFormula = "OR(category_type!='Planned')";
     const endpoint = `${AIRTABLE_CONFIG.TABLES.TRANSACTIONS}?sort[0][field]=transaction date&sort[0][direction]=desc&maxRecords=${API_CONFIG.TRANSACTIONS_LIMIT}&filterByFormula=${encodeURIComponent(filterFormula)}`;
     const data = await makeAirtableRequest<AirtableResponse<AirtableTransactionFields>>(endpoint);
 
@@ -189,7 +190,7 @@ export async function fetchGoalsBalance(): Promise<string> {
 }
 
 /**
- * Creates two transactions for goal savings: income on Goals account and expense on Checkings account
+ * Creates two transactions for goal savings: income on Goals account and expense on Checking account
  * Both transactions are created in a single API call for data consistency
  */
 export async function createGoalTransaction(
@@ -199,32 +200,51 @@ export async function createGoalTransaction(
   try {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     
+    // First, fetch the record IDs for Goals and Checking accounts
+    const [goalsAccountResponse, checkingAccountResponse] = await Promise.all([
+      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
+        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Goals'&maxRecords=1`
+      ),
+      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
+        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Checking'&maxRecords=1`
+      )
+    ]);
+
+    if (!goalsAccountResponse.records?.length) {
+      throw new AirtableApiError('Goals account not found');
+    }
+    
+    if (!checkingAccountResponse.records?.length) {
+      throw new AirtableApiError('Checking account not found');
+    }
+
+    const goalsAccountId = goalsAccountResponse.records[0].id;
+    const checkingAccountId = checkingAccountResponse.records[0].id;
+    
+    
     const transactionsData = {
       records: [
         {
           fields: {
-            Name: goalName,
-            Value: -amount,
-            'transaction date': today,
-            '_to_account': 'Goals',
-          }
-        },
-        {
-          fields: {
-            Name: goalName,
+            Name: 'cel długoterminowy: ' + goalName,
             Value: amount,
-            'transaction date': today,
-            '_to_account': 'Checking',
+            //'transaction date': today,
+            'To Account': [goalsAccountId],
+            'From Account': [checkingAccountId],
           }
         }
       ]
     };
+    
+    console.log('Transaction data being sent:', JSON.stringify(transactionsData, null, 2));
 
     const endpoint = AIRTABLE_CONFIG.TABLES.TRANSACTIONS;
-    await makeAirtableRequest(endpoint, {
+    const response = await makeAirtableRequest(endpoint, {
       method: 'POST',
       body: JSON.stringify(transactionsData),
     });
+    
+    console.log('Airtable response:', JSON.stringify(response, null, 2));
   } catch (error) {
     console.error('Error creating goal transaction:', error);
     throw error;
@@ -315,4 +335,109 @@ export function formatTransactionValue(value: string): string {
     return value;
   }
   return Math.round(numericValue).toString();
+}
+
+/**
+ * Adds a new transaction to Airtable
+ * Creates a single transaction record with the provided details
+ */
+export async function addTransaction(transaction: NewTransaction): Promise<Transaction> {
+  try {
+    const now = new Date().toISOString(); // Full ISO timestamp
+    
+    const transactionData = {
+      records: [
+        {
+          fields: {
+            Name: transaction.name,
+            Value: transaction.value,
+            'transaction date': transaction.date || now,
+            ...(transaction.category && { Ai_Category: transaction.category }),
+            ...(transaction.fromAccountId && { 'From Account': [transaction.fromAccountId] }),
+            ...(transaction.toAccountId && { 'To Account': [transaction.toAccountId] }),
+          }
+        }
+      ]
+    };
+    
+    console.log('Transaction data being sent:', JSON.stringify(transactionData, null, 2));
+
+    const endpoint = AIRTABLE_CONFIG.TABLES.TRANSACTIONS;
+    const response = await makeAirtableRequest<AirtableResponse<AirtableTransactionFields>>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+    
+    console.log('Airtable response:', JSON.stringify(response, null, 2));
+    
+    if (!response.records?.length) {
+      throw new AirtableApiError('No record returned after creating transaction');
+    }
+    
+    const record = response.records[0];
+    return {
+      id: record.id,
+      Name: record.fields.Name || '',
+      Ai_Category: record.fields.Ai_Category || '',
+      Value: record.fields.Value?.toString() || '0',
+      Date: record.fields['transaction date'] || now,
+    };
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    throw error;
+  }
+}
+
+/**
+ * Realizes a goal by creating two transactions:
+ * 1. Transfer from Goals account to Checking account
+ * 2. Expense transaction for the goal purchase
+ */
+export async function realizeGoal(goalName: string, finalPrice: number): Promise<void> {
+  try {
+    const now = new Date().toISOString(); // Full ISO timestamp
+    
+    // First, fetch the record IDs for Goals and Checking accounts
+    const [goalsAccountResponse, checkingAccountResponse] = await Promise.all([
+      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
+        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Goals'&maxRecords=1`
+      ),
+      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
+        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Checking'&maxRecords=1`
+      )
+    ]);
+
+    if (!goalsAccountResponse.records?.length) {
+      throw new AirtableApiError('Goals account not found');
+    }
+    
+    if (!checkingAccountResponse.records?.length) {
+      throw new AirtableApiError('Checking account not found');
+    }
+
+    const goalsAccountId = goalsAccountResponse.records[0].id;
+    const checkingAccountId = checkingAccountResponse.records[0].id;
+    
+    // Create both transactions
+    await Promise.all([
+      // 1. Transfer from Goals to Checking
+      addTransaction({
+        name: `Realizacja celu: ${goalName}`,
+        value: finalPrice,
+        fromAccountId: goalsAccountId,
+        toAccountId: checkingAccountId,
+      }),
+      
+      // 2. Expense transaction for the purchase
+      addTransaction({
+        name: goalName,
+        value: finalPrice,
+      }),
+    ]);
+    
+    console.log(`Goal "${goalName}" realized successfully with final price: ${finalPrice} PLN`);
+  } catch (error) {
+    console.error('Error realizing goal:', error);
+    throw error;
+  }
 }

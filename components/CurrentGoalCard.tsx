@@ -5,11 +5,12 @@
  */
 
 import { HStack } from '@/components/ui/hstack';
+import { PriceInputDialog } from '@/components/ui/price-input-dialog';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-import { formatTransactionValue } from '@/services/airtableService';
+import { formatTransactionValue, realizeGoal } from '@/services/airtableService';
 import { PlannedTransaction } from '@/types';
-import React from 'react';
+import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 interface CurrentGoalCardProps {
@@ -27,6 +28,8 @@ interface CurrentGoalCardProps {
   onSaveToGoal?: (amount: number) => Promise<void>;
   /** Loading state for saving to goal */
   isSavingToGoal?: boolean;
+  /** Function to refresh data after goal realization */
+  onGoalRealized?: () => Promise<void>;
 }
 
 /**
@@ -40,7 +43,10 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
   dailyBudget,
   onSaveToGoal,
   isSavingToGoal = false,
+  onGoalRealized,
 }) => {
+  const [isRealizingGoal, setIsRealizingGoal] = useState(false);
+  const [isPriceDialogVisible, setIsPriceDialogVisible] = useState(false);
   // Calculate real progress percentage based on saved amount
   const calculateProgressPercentage = (): number => {
     if (!goal || !goalsBalance) return 0;
@@ -76,6 +82,42 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
     } catch (error) {
       console.error('Error saving to goal:', error);
     }
+  };
+
+  /**
+   * Handles goal realization
+   */
+  const handleRealizeGoal = () => {
+    if (!goal) return;
+    setIsPriceDialogVisible(true);
+  };
+
+  /**
+   * Handles price confirmation from dialog
+   */
+  const handlePriceConfirm = async (price: number) => {
+    if (!goal) return;
+    
+    setIsPriceDialogVisible(false);
+    setIsRealizingGoal(true);
+    
+    try {
+      await realizeGoal(goal.Name, price);
+      if (onGoalRealized) {
+        await onGoalRealized();
+      }
+    } catch (error) {
+      console.error('Error realizing goal:', error);
+    } finally {
+      setIsRealizingGoal(false);
+    }
+  };
+
+  /**
+   * Handles price dialog cancellation
+   */
+  const handlePriceCancel = () => {
+    setIsPriceDialogVisible(false);
   };
 
   if (isLoading) {
@@ -138,9 +180,6 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           <Text className="text-xl font-bold text-text-900">
             {formatTransactionValue(goal.Value)} PLN
           </Text>
-          <Text className="text-xs text-text-500">
-            {goal.NumberOfHundreds} setek
-          </Text>
           <Text className="text-sm font-medium text-primary-600 mt-1">
             Uzbierane: {formatTransactionValue(goalsBalance)} PLN
           </Text>
@@ -172,6 +211,31 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             {formatTransactionValue(goalsBalance)} PLN z {formatTransactionValue(goal.Value)} PLN
           </Text>
         </VStack>
+
+        {/* Realize Goal Button */}
+        <TouchableOpacity 
+          className={`py-3 px-4 rounded-lg items-center mt-4 ${
+            progressPercentage >= 100 
+              ? (isRealizingGoal ? 'bg-success-400 opacity-60' : 'bg-success-600')
+              : 'bg-gray-400 opacity-50'
+          }`}
+          onPress={handleRealizeGoal}
+          disabled={isRealizingGoal || progressPercentage < 100}
+        >
+          <Text className={`font-bold text-base ${
+            progressPercentage >= 100 ? 'text-white' : 'text-gray-600'
+          }`}>
+            {isRealizingGoal ? 'Realizuję...' : '🎉 Realizuj!'}
+          </Text>
+          <Text className={`text-xs mt-1 ${
+            progressPercentage >= 100 ? 'text-white opacity-90' : 'text-gray-500'
+          }`}>
+            {progressPercentage >= 100 
+              ? 'Cel osiągnięty - kliknij aby zrealizować'
+              : `Cel osiągnięty w ${progressPercentage}% - potrzebujesz ${100 - progressPercentage}% więcej`
+            }
+          </Text>
+        </TouchableOpacity>
 
         {/* Action Buttons */}
         <VStack space="sm" className="mt-4">
@@ -226,6 +290,16 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
             </TouchableOpacity>
           </HStack>
         </VStack>
+
+        {/* Price Input Dialog */}
+        <PriceInputDialog
+          isVisible={isPriceDialogVisible}
+          title="Realizacja celu"
+          message={`Podaj finalną cenę dla "${goal?.Name}":`}
+          onConfirm={handlePriceConfirm}
+          onCancel={handlePriceCancel}
+          isLoading={isRealizingGoal}
+        />
     </VStack>
   );
 }; 

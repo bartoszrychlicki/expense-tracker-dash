@@ -5,13 +5,13 @@
  * whether it's income (positive) or expense (negative).
  */
 
-import React from 'react';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
-import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
+import { formatTransactionValue, isPositiveTransaction } from '@/services/airtableService';
 import { Transaction } from '@/types';
-import { isPositiveTransaction, formatTransactionValue } from '@/services/airtableService';
+import React from 'react';
 
 interface TransactionItemProps {
   /** The transaction data to display */
@@ -27,8 +27,12 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
   transaction,
   className = '',
 }) => {
-  const isPositive = isPositiveTransaction(transaction.Value);
+  const isExpense = isPositiveTransaction(transaction.Value);
   const formattedValue = formatTransactionValue(transaction.Value);
+  
+  // For display: expenses (positive values) show as red with minus
+  // income (negative values) show as green with plus
+  const displayValue = isExpense ? `-${formattedValue}` : `+${Math.abs(parseFloat(transaction.Value)).toString()}`;
 
   return (
     <HStack 
@@ -39,20 +43,20 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
       {/* Transaction Value Circle */}
       <Box 
         className={`rounded-full h-12 w-12 items-center justify-center ${
-          isPositive ? 'bg-success-100' : 'bg-error-100'
+          isExpense ? 'bg-error-100' : 'bg-success-100'
         }`}
       >
         <VStack className="items-center justify-center" space="xs">
           <Text 
             className={`text-xs font-medium leading-tight ${
-              isPositive ? 'text-success-800' : 'text-error-800'
+              isExpense ? 'text-error-800' : 'text-success-800'
             }`}
           >
-            {isPositive ? '+' : ''}{formattedValue}
+            {displayValue}
           </Text>
           <Text 
             className={`text-xs font-normal leading-tight ${
-              isPositive ? 'text-success-600' : 'text-error-600'
+              isExpense ? 'text-error-600' : 'text-success-600'
             }`}
           >
             PLN

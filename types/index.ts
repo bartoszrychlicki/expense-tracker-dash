@@ -171,3 +171,21 @@ export interface LoadingState {
   /** Error message if the operation failed */
   error?: string;
 }
+
+/**
+ * Interface for creating a new transaction
+ */
+export interface NewTransaction {
+  /** Transaction name/description */
+  name: string;
+  /** Transaction value (positive for expenses, negative for income) */
+  value: number;
+  /** Optional AI category for the transaction */
+  category?: string;
+  /** Optional date (defaults to today if not provided) */
+  date?: string;
+  /** Optional from account ID (for transfers) */
+  fromAccountId?: string;
+  /** Optional to account ID (for transfers) */
+  toAccountId?: string;
+}

@@ -166,6 +166,7 @@ export default function Index() {
             dailyBudget={dailyBudget.todaysVariableDailyLimit}
             onSaveToGoal={handleSaveToGoal}
             isSavingToGoal={isSavingToGoal}
+            onGoalRealized={refreshData}
           />
 
           {/* Transactions List */}
