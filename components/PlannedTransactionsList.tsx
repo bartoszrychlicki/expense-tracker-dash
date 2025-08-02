@@ -21,6 +21,8 @@ interface PlannedTransactionsListProps {
   onRefresh?: () => void;
   /** Whether the list is currently refreshing */
   refreshing?: boolean;
+  /** Function called when a goal is selected as current */
+  onGoalSelected?: () => void;
 }
 
 /**
@@ -31,6 +33,7 @@ export const PlannedTransactionsList: React.FC<PlannedTransactionsListProps> = (
   loadingState,
   onRefresh,
   refreshing = false,
+  onGoalSelected,
 }) => {
   // Show skeleton loading state
   if (loadingState.isLoading && !transactions.length) {
@@ -95,6 +98,7 @@ export const PlannedTransactionsList: React.FC<PlannedTransactionsListProps> = (
             <PlannedTransactionItem
               key={transaction.id}
               transaction={transaction}
+              onGoalSelected={onGoalSelected}
             />
           ))}
         </VStack>

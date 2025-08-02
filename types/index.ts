@@ -28,6 +28,18 @@ export interface DailyBudget {
   dailySpentSum?: string;
   /** Today's variable daily limit */
   todaysVariableDailyLimit?: string;
+  /** Automatic savings made today */
+  automaticSavingsToday?: string;
+  /** Percentage of daily budget for automatic savings */
+  automaticSavingsPercentage?: string;
+  /** Automatic goal deposits made today */
+  automaticGoalDepositsToday?: string;
+  /** Percentage of daily budget for automatic goal deposits */
+  automaticGoalDepositsPercentage?: string;
+  /** Sum of automatic savings this month */
+  automaticSavingsMonthSum?: string;
+  /** Sum of automatic goal deposits this month */
+  automaticGoalDepositsMonthSum?: string;
 }
 
 /**
@@ -52,6 +64,26 @@ export interface PlannedTransaction {
   Decision: string;
   /** Whether this is the currently selected goal */
   Currently_selected_goal?: boolean;
+}
+
+/**
+ * Represents an account from Airtable
+ */
+export interface Account {
+  /** Unique identifier for the account */
+  id: string;
+  /** Account name (e.g., "Goals", "Checking") */
+  Name: string;
+  /** Current balance of the account */
+  Balance: string;
+}
+
+/**
+ * Raw account fields from Airtable
+ */
+export interface AirtableAccountFields {
+  Name?: string;
+  Balance?: number | string;
 }
 
 /**
@@ -84,6 +116,7 @@ export interface AirtableTransactionFields {
   Ai_Category?: string;
   Value?: number | string;
   'transaction date'?: string;
+  category_type?: string;
 }
 
 /**
@@ -94,6 +127,12 @@ export interface AirtableDailyBudgetFields {
   'Daily spent sum'?: number | string;
   'Todays variable daily limit'?: number | string;
   'Created at'?: string;
+  'auto_savigs_value'?: number | string;
+  'auto_savings_percent (from Month)'?: number[];
+  'auto_goals_value'?: number | string;
+  'auto_goals_percent (from Month)'?: number[];
+  'auto_savings_sum (from Month)'?: number[];
+  'auto_goals_sum'?: number[];
 }
 
 /**

@@ -15,7 +15,8 @@ export const AIRTABLE_CONFIG = {
   TABLES: {
     DAYS: process.env.EXPO_PUBLIC_AIRTABLE_DAYS_TABLE || 'days',
     TRANSACTIONS: process.env.EXPO_PUBLIC_AIRTABLE_TRANSACTIONS_TABLE || 'transactions',
-    PLANNED_TRANSACTIONS: process.env.EXPO_PUBLIC_AIRTABLE_PLANNED_TRANSACTIONS_TABLE || 'planned_transactions',
+    PLANNED_TRANSACTIONS: process.env.EXPO_PUBLIC_AIRTABLE_PLANNED_TRANSACTIONS_TABLE || 'goals',
+    ACCOUNTS: process.env.EXPO_PUBLIC_AIRTABLE_ACCOUNTS_TABLE || 'accounts',
   },
   BASE_URL: 'https://api.airtable.com/v0',
 } as const;

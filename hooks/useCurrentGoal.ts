@@ -7,6 +7,7 @@
 
 import {
     AirtableApiError,
+    fetchGoalsBalance,
     fetchPlannedTransactions
 } from '@/services/airtableService';
 import { LoadingState, PlannedTransaction } from '@/types';
@@ -15,6 +16,8 @@ import { useCallback, useEffect, useState } from 'react';
 interface UseCurrentGoalReturn {
   /** The currently selected goal */
   currentGoal?: PlannedTransaction;
+  /** Current balance saved for goals */
+  goalsBalance: string;
   /** Loading state for the goal data */
   loadingState: LoadingState;
   /** Function to manually refresh data */
@@ -27,6 +30,7 @@ interface UseCurrentGoalReturn {
 export const useCurrentGoal = (): UseCurrentGoalReturn => {
   // State for current goal data
   const [currentGoal, setCurrentGoal] = useState<PlannedTransaction | undefined>(undefined);
+  const [goalsBalance, setGoalsBalance] = useState<string>('0');
   const [loadingState, setLoadingState] = useState<LoadingState>({
     isLoading: true,
     error: undefined,
@@ -39,7 +43,10 @@ export const useCurrentGoal = (): UseCurrentGoalReturn => {
     setLoadingState({ isLoading: true, error: undefined });
     
     try {
-      const transactionsData = await fetchPlannedTransactions();
+      const [transactionsData, balance] = await Promise.all([
+        fetchPlannedTransactions(),
+        fetchGoalsBalance()
+      ]);
       
       // Find the currently selected goal
       const selectedGoal = transactionsData.find(
@@ -47,6 +54,7 @@ export const useCurrentGoal = (): UseCurrentGoalReturn => {
       );
       
       setCurrentGoal(selectedGoal);
+      setGoalsBalance(balance);
       setLoadingState({ isLoading: false, error: undefined });
     } catch (error) {
       const errorMessage = error instanceof AirtableApiError 
@@ -72,6 +80,7 @@ export const useCurrentGoal = (): UseCurrentGoalReturn => {
 
   return {
     currentGoal,
+    goalsBalance,
     loadingState,
     refreshData,
   };

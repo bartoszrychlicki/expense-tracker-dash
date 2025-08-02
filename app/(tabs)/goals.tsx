@@ -9,6 +9,7 @@ import { PlannedTransactionsList } from '@/components/PlannedTransactionsList';
 import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
 import { usePlannedTransactions } from '@/hooks/usePlannedTransactions';
+import { useToast } from '@/hooks/useToast';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -32,6 +33,9 @@ export default function Goals() {
   // State for refresh control
   const [refreshing, setRefreshing] = useState(false);
 
+  // Use toast for notifications
+  const toast = useToast();
+
   /**
    * Handles the refresh action
    */
@@ -41,6 +45,25 @@ export default function Goals() {
       await refreshData();
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  /**
+   * Handles when a goal is selected as current
+   */
+  const handleGoalSelected = async () => {
+    try {
+      await refreshData();
+      toast.showSuccess(
+        'Cel zaktualizowany!',
+        'Nowy cel został ustawiony jako aktualny'
+      );
+    } catch (error) {
+      console.error('Error refreshing after goal selection:', error);
+      toast.showError(
+        'Błąd',
+        'Nie udało się odświeżyć listy celów'
+      );
     }
   };
 
@@ -64,6 +87,7 @@ export default function Goals() {
             loadingState={loadingState}
             onRefresh={handleRefresh}
             refreshing={refreshing}
+            onGoalSelected={handleGoalSelected}
           />
         </View>
       </ScrollView>

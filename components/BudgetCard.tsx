@@ -5,11 +5,12 @@
  * with consistent styling and proper TypeScript typing.
  */
 
-import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { UI_CONFIG } from '@/config/constants';
+import { formatTransactionValue } from '@/services/airtableService';
+import React from 'react';
 
 interface BudgetCardProps {
   /** The main value to display (e.g., budget amount) */
@@ -31,7 +32,8 @@ export const BudgetCard: React.FC<BudgetCardProps> = ({
   size = 'lg',
   className = '',
 }) => {
-  const displayValue = value ?? UI_CONFIG.DEFAULT_PLACEHOLDER;
+  // Format the value only if it's not the default placeholder and is a valid number
+  const displayValue = value ? formatTransactionValue(value) : UI_CONFIG.DEFAULT_PLACEHOLDER;
   
   return (
     <Card size={size} variant="outline" className={`mb-4 ${className}`}>

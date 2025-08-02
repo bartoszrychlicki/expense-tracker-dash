@@ -15,8 +15,12 @@ import { TouchableOpacity, View } from 'react-native';
 interface CurrentGoalCardProps {
   /** The currently selected goal */
   goal?: PlannedTransaction;
+  /** Current balance saved for goals */
+  goalsBalance?: string;
   /** Loading state */
   isLoading?: boolean;
+  /** Error message if loading failed */
+  error?: string;
   /** Daily budget amount for calculations */
   dailyBudget?: string;
   /** Function to handle goal savings */
@@ -30,13 +34,23 @@ interface CurrentGoalCardProps {
  */
 export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
   goal,
+  goalsBalance = '0',
   isLoading = false,
+  error,
   dailyBudget,
   onSaveToGoal,
   isSavingToGoal = false,
 }) => {
-  // Mock progress value (to be set later)
-  const progressPercentage = 35; // 35% progress
+  // Calculate real progress percentage based on saved amount
+  const calculateProgressPercentage = (): number => {
+    if (!goal || !goalsBalance) return 0;
+    const savedAmount = parseFloat(goalsBalance);
+    const goalAmount = parseFloat(goal.Value);
+    if (isNaN(savedAmount) || isNaN(goalAmount) || goalAmount === 0) return 0;
+    return Math.min((savedAmount / goalAmount) * 100, 100); // Cap at 100%
+  };
+  
+  const progressPercentage = Math.round(calculateProgressPercentage());
 
   /**
    * Calculates amount for given percentage of daily budget
@@ -79,6 +93,22 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
     );
   }
 
+  if (error) {
+    return (
+      <VStack className="mb-4 border border-error-300 rounded-lg px-4 py-6" space="sm">
+        <Text className="text-lg font-semibold text-text-900">
+          Aktualny cel
+        </Text>
+        <Text className="text-error-600 text-center mb-2">
+          Błąd podczas ładowania celu
+        </Text>
+        <Text className="text-error-500 text-sm text-center">
+          {error}
+        </Text>
+      </VStack>
+    );
+  }
+
   if (!goal) {
     return (
       <VStack className="mb-4 border border-border-300 rounded-lg px-4 py-6" space="sm">
@@ -111,6 +141,9 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           <Text className="text-xs text-text-500">
             {goal.NumberOfHundreds} setek
           </Text>
+          <Text className="text-sm font-medium text-primary-600 mt-1">
+            Uzbierane: {formatTransactionValue(goalsBalance)} PLN
+          </Text>
         </View>
       </HStack>
 
@@ -136,7 +169,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           
           {/* Progress Amount */}
           <Text className="text-xs text-text-500 text-center">
-            {Math.round((parseFloat(goal.Value) * progressPercentage) / 100)} PLN z {formatTransactionValue(goal.Value)} PLN
+            {formatTransactionValue(goalsBalance)} PLN z {formatTransactionValue(goal.Value)} PLN
           </Text>
         </VStack>
 
