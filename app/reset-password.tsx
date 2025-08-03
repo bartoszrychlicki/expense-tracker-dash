@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { supabase } from '@/services/supabaseService';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ResetPasswordScreen() {
@@ -15,6 +15,7 @@ export default function ResetPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [hasResetTokens, setHasResetTokens] = useState(false);
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check URL params immediately when component mounts
   useEffect(() => {
@@ -94,15 +95,30 @@ export default function ResetPasswordScreen() {
 
   // If user is not in password reset mode, redirect to login
   useEffect(() => {
-    console.log('Reset password screen - isResettingPassword:', isResettingPassword, 'session:', !!session, 'hasResetTokens:', hasResetTokens);
+    console.log(
+      'Reset password screen - isResettingPassword:',
+      isResettingPassword,
+      'session:',
+      !!session,
+      'hasResetTokens:',
+      hasResetTokens
+    );
     console.log('Current URL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
-    
-    // If we already detected reset tokens on mount, don't redirect
-    if (hasResetTokens) {
-      console.log('Already detected reset tokens on mount, allowing access');
+
+    // Clear any pending redirect if we now have tokens or are in reset mode
+    if (isResettingPassword || hasResetTokens) {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    }
+
+    // If we already detected reset tokens on mount or are resetting password, allow access
+    if (hasResetTokens || isResettingPassword) {
+      console.log('Already detected reset tokens or in reset mode, allowing access');
       return;
     }
-    
+
     // Check if user came from password reset link by checking URL params
     const checkPasswordResetAccess = () => {
       if (typeof window !== 'undefined') {
@@ -110,10 +126,10 @@ export default function ResetPasswordScreen() {
         const accessToken = urlParams.get('access_token');
         const refreshToken = urlParams.get('refresh_token');
         const type = urlParams.get('type');
-        
+
         console.log('URL params:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
         console.log('Full URL params:', Object.fromEntries(urlParams.entries()));
-        
+
         // If user has tokens from password reset link, they should be able to reset password
         if (accessToken && refreshToken && type === 'recovery') {
           console.log('User has password reset tokens, setting isResettingPassword to true');
@@ -121,7 +137,7 @@ export default function ResetPasswordScreen() {
           setHasResetTokens(true);
           return;
         }
-        
+
         // Also check for hash params (sometimes Supabase uses hash)
         const hash = window.location.hash;
         console.log('URL hash:', hash);
@@ -132,7 +148,7 @@ export default function ResetPasswordScreen() {
           return;
         }
       }
-      
+
       // If user has session but isResettingPassword is false, set it to true
       if (session && !isResettingPassword) {
         console.log('User has session but isResettingPassword is false, setting to true');
@@ -140,13 +156,19 @@ export default function ResetPasswordScreen() {
         setHasResetTokens(true);
       } else if (!isResettingPassword && !hasResetTokens) {
         console.log('User not in reset mode and no reset tokens detected, redirecting to login in 2 seconds...');
-        setTimeout(() => {
+        redirectTimeoutRef.current = setTimeout(() => {
           router.replace('/login');
         }, 2000);
       }
     };
-    
+
     checkPasswordResetAccess();
+
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
   }, [isResettingPassword, session, router, setResettingPassword, hasResetTokens]);
 
   if (!isResettingPassword && !hasResetTokens) {
