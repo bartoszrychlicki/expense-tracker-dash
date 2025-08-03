@@ -1,10 +1,10 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { API_CONFIG } from '@/config/constants';
-import { DailyBudget, PlannedTransaction, Transaction, NewTransaction } from '@/types';
+import { DailyBudget, NewTransaction, PlannedTransaction, Transaction } from '@/types';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_KEY || '';
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 /**
@@ -22,44 +22,27 @@ export class SupabaseApiError extends Error {
 }
 
 /**
- * Fetches the latest daily budget record from Supabase
+ * Fetches the latest daily budget from the daily_budget_summary view
  */
 export async function fetchLatestDailyBudget(): Promise<DailyBudget> {
-  const { data, error } = await supabase
-    .from('days')
-    .select(
-      `daily_budget_left,
-       daily_spent_sum,
-       todays_variable_daily_limit,
-       auto_savigs_value,
-       auto_savings_percent,
-       auto_goals_value,
-       auto_goals_percent,
-       auto_savings_sum,
-       auto_goals_sum`
-    )
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
   }
 
-  const record = data?.[0];
-  if (!record) {
-    return {};
-  }
-
+  // TODO: Implement when views are created
+  // For now, return empty data
   return {
-    dailyBudgetLeft: record.daily_budget_left?.toString(),
-    dailySpentSum: record.daily_spent_sum?.toString(),
-    todaysVariableDailyLimit: record.todays_variable_daily_limit?.toString(),
-    automaticSavingsToday: record.auto_savigs_value?.toString(),
-    automaticSavingsPercentage: record.auto_savings_percent?.toString(),
-    automaticGoalDepositsToday: record.auto_goals_value?.toString(),
-    automaticGoalDepositsPercentage: record.auto_goals_percent?.toString(),
-    automaticSavingsMonthSum: record.auto_savings_sum?.toString(),
-    automaticGoalDepositsMonthSum: record.auto_goals_sum?.toString(),
+    dailyBudgetLeft: '0',
+    dailySpentSum: '0',
+    todaysVariableDailyLimit: '0',
+    automaticSavingsToday: '0',
+    automaticSavingsPercentage: '0',
+    automaticGoalDepositsToday: '0',
+    automaticGoalDepositsPercentage: '0',
+    automaticSavingsMonthSum: '0',
+    automaticGoalDepositsMonthSum: '0',
   };
 }
 
@@ -67,15 +50,21 @@ export async function fetchLatestDailyBudget(): Promise<DailyBudget> {
  * Fetches recent transactions from Supabase
  */
 export async function fetchRecentTransactions(): Promise<Transaction[]> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
   const { data, error } = await supabase
     .from('transactions')
-    .select('id, Name, Ai_Category, Value, transaction_date, category_type')
-    .neq('category_type', 'Planned')
+    .select('*')
+    .eq('user_id', user.id)
     .order('transaction_date', { ascending: false })
     .limit(API_CONFIG.TRANSACTIONS_LIMIT);
 
   if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
+    throw new SupabaseApiError(error.message, undefined, error);
   }
 
   if (!data) {
@@ -84,24 +73,31 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
 
   return data.map((record): Transaction => ({
     id: record.id,
-    Name: record.Name || '',
-    Ai_Category: record.Ai_Category || '',
-    Value: record.Value?.toString() || '',
+    Name: record.name || '',
+    Ai_Category: record.category || '',
+    Value: record.amount?.toString() || '',
     Date: record.transaction_date || '',
   }));
 }
 
 /**
- * Fetches planned transactions from Supabase
+ * Fetches planned transactions (goals) from Supabase
  */
 export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
   const { data, error } = await supabase
     .from('goals')
-    .select('id, Name, Value, URL, Created, _NumberOfHundreds, Decision_date, Decision, Currently_selected_goal')
-    .order('Created', { ascending: false });
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
 
   if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
+    throw new SupabaseApiError(error.message, undefined, error);
   }
 
   if (!data) {
@@ -110,14 +106,14 @@ export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> 
 
   return data.map((record): PlannedTransaction => ({
     id: record.id,
-    Name: record.Name || '',
-    Value: record.Value?.toString() || '',
-    URL: record.URL || '',
-    Created: record.Created || '',
-    NumberOfHundreds: record._NumberOfHundreds || 0,
-    Decision_date: record.Decision_date || '',
-    Decision: record.Decision || '',
-    Currently_selected_goal: record.Currently_selected_goal || false,
+    Name: record.name || '',
+    Value: record.target_amount?.toString() || '',
+    URL: record.url || '',
+    Created: record.created_at || '',
+    NumberOfHundreds: Math.floor((record.current_amount || 0) / 100),
+    Decision_date: record.decision_date || '',
+    Decision: record.decision || '',
+    Currently_selected_goal: record.is_currently_selected || false,
   }));
 }
 
@@ -125,16 +121,24 @@ export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> 
  * Adds a new transaction to Supabase
  */
 export async function addTransaction(transaction: NewTransaction): Promise<Transaction> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
   const now = new Date().toISOString();
 
   const insertData: any = {
-    Name: transaction.name,
-    Value: transaction.value,
-    transaction_date: transaction.date || now,
+    user_id: user.id,
+    name: transaction.name,
+    amount: Math.abs(transaction.value),
+    transaction_date: transaction.date || now.split('T')[0],
+    is_income: transaction.value > 0,
   };
 
   if (transaction.category) {
-    insertData.Ai_Category = transaction.category;
+    insertData.category = transaction.category;
   }
   if (transaction.fromAccountId) {
     insertData.from_account_id = transaction.fromAccountId;
@@ -150,58 +154,73 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
     .single();
 
   if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
+    throw new SupabaseApiError(error.message, undefined, error);
   }
 
   return {
     id: data.id,
-    Name: data.Name || '',
-    Ai_Category: data.Ai_Category || '',
-    Value: data.Value?.toString() || '0',
-    Date: data.transaction_date || now,
+    Name: data.name || '',
+    Ai_Category: data.category || '',
+    Value: data.is_income ? data.amount?.toString() : (-data.amount)?.toString() || '0',
+    Date: data.transaction_date || now.split('T')[0],
   };
 }
 
 /**
- * Creates two transactions for goal savings: income on Goals account and expense on Checking account
+ * Creates a goal transaction (savings to goals account)
  */
 export async function createGoalTransaction(goalName: string, amount: number): Promise<void> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
   const today = new Date().toISOString().split('T')[0];
 
+  // Get the goals account
   const { data: goalsAccount, error: goalsError } = await supabase
     .from('accounts')
     .select('id')
-    .eq('Name', 'Goals')
+    .eq('user_id', user.id)
+    .eq('name', 'Goals')
     .single();
+  
   if (goalsError) {
-    throw new SupabaseApiError(goalsError.message, goalsError.status, goalsError);
+    throw new SupabaseApiError(goalsError.message, undefined, goalsError);
   }
   if (!goalsAccount) {
     throw new SupabaseApiError('Goals account not found');
   }
 
+  // Get the checking account
   const { data: checkingAccount, error: checkingError } = await supabase
     .from('accounts')
     .select('id')
-    .eq('Name', 'Checking')
+    .eq('user_id', user.id)
+    .eq('name', 'Checking')
     .single();
+  
   if (checkingError) {
-    throw new SupabaseApiError(checkingError.message, checkingError.status, checkingError);
+    throw new SupabaseApiError(checkingError.message, undefined, checkingError);
   }
   if (!checkingAccount) {
     throw new SupabaseApiError('Checking account not found');
   }
 
+  // Create the goal transaction
   const { error } = await supabase.from('transactions').insert({
-    Name: 'cel długoterminowy: ' + goalName,
-    Value: amount,
+    name: 'cel długoterminowy: ' + goalName,
+    amount: amount,
     transaction_date: today,
-    to_account_id: goalsAccount.id,
+    category_type: 'goal',
     from_account_id: checkingAccount.id,
+    to_account_id: goalsAccount.id,
+    is_income: false,
   });
 
   if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
+    throw new SupabaseApiError(error.message, undefined, error);
   }
 }
 
@@ -209,57 +228,53 @@ export async function createGoalTransaction(goalName: string, amount: number): P
  * Sets a specific goal as the currently selected goal
  */
 export async function setCurrentGoal(goalId: string): Promise<void> {
-  const { data: allGoals, error } = await supabase
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
+  // First, unselect all goals for this user
+  const { error: unselectError } = await supabase
     .from('goals')
-    .select('id, Currently_selected_goal');
+    .update({ is_currently_selected: false })
+    .eq('user_id', user.id)
+    .eq('is_currently_selected', true);
 
-  if (error) {
-    throw new SupabaseApiError(error.message, error.status, error);
-  }
-  if (!allGoals) {
-    throw new SupabaseApiError('No goals found');
-  }
-
-  const currentlySelected = allGoals.find(g => g.Currently_selected_goal);
-  const targetGoal = allGoals.find(g => g.id === goalId);
-
-  if (!targetGoal) {
-    throw new SupabaseApiError('Target goal not found');
+  if (unselectError) {
+    throw new SupabaseApiError(unselectError.message, undefined, unselectError);
   }
 
-  const updates: Promise<any>[] = [];
+  // Then select the target goal
+  const { error: selectError } = await supabase
+    .from('goals')
+    .update({ is_currently_selected: true })
+    .eq('id', goalId);
 
-  if (currentlySelected && currentlySelected.id !== goalId) {
-    updates.push(
-      supabase.from('goals').update({ Currently_selected_goal: false }).eq('id', currentlySelected.id)
-    );
-  }
-
-  if (!targetGoal.Currently_selected_goal) {
-    updates.push(
-      supabase.from('goals').update({ Currently_selected_goal: true }).eq('id', goalId)
-    );
-  }
-
-  for (const p of updates) {
-    const { error: updateError } = await p;
-    if (updateError) {
-      throw new SupabaseApiError(updateError.message, updateError.status, updateError);
-    }
+  if (selectError) {
+    throw new SupabaseApiError(selectError.message, undefined, selectError);
   }
 }
 
 /**
- * Realizes a goal by creating two transactions: transfer and expense
+ * Realizes a goal by creating expense transaction
  */
 export async function realizeGoal(goalName: string, finalPrice: number): Promise<void> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
   const { data: goalsAccount, error: goalsError } = await supabase
     .from('accounts')
     .select('id')
-    .eq('Name', 'Goals')
+    .eq('user_id', user.id)
+    .eq('name', 'Goals')
     .single();
+  
   if (goalsError) {
-    throw new SupabaseApiError(goalsError.message, goalsError.status, goalsError);
+    throw new SupabaseApiError(goalsError.message, undefined, goalsError);
   }
   if (!goalsAccount) {
     throw new SupabaseApiError('Goals account not found');
@@ -268,15 +283,17 @@ export async function realizeGoal(goalName: string, finalPrice: number): Promise
   const { data: checkingAccount, error: checkingError } = await supabase
     .from('accounts')
     .select('id')
-    .eq('Name', 'Checking')
+    .eq('name', 'Checking')
     .single();
+  
   if (checkingError) {
-    throw new SupabaseApiError(checkingError.message, checkingError.status, checkingError);
+    throw new SupabaseApiError(checkingError.message, undefined, checkingError);
   }
   if (!checkingAccount) {
     throw new SupabaseApiError('Checking account not found');
   }
 
+  // Create two transactions: transfer from goals to checking, then expense
   await Promise.all([
     addTransaction({
       name: `Realizacja celu: ${goalName}`,
@@ -286,9 +303,55 @@ export async function realizeGoal(goalName: string, finalPrice: number): Promise
     }),
     addTransaction({
       name: goalName,
-      value: finalPrice,
+      value: -finalPrice, // Negative for expense
     }),
   ]);
+}
+
+/**
+ * Gets monthly savings summary
+ */
+export async function getMonthlySavingsSummary() {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
+  const { data, error } = await supabase
+    .from('monthly_savings_summary')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error) {
+    throw new SupabaseApiError(error.message, undefined, error);
+  }
+
+  return data;
+}
+
+/**
+ * Gets goals with progress
+ */
+export async function getGoalsWithProgress() {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
+  const { data, error } = await supabase
+    .from('goals_with_progress')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_date', { ascending: false });
+
+  if (error) {
+    throw new SupabaseApiError(error.message, undefined, error);
+  }
+
+  return data || [];
 }
 
 /**
