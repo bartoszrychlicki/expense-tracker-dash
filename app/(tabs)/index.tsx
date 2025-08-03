@@ -14,6 +14,7 @@ import { TransactionsList } from '@/components/TransactionsList';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
+import { useAuth } from '@/hooks/useAuth';
 import { useBudgetData } from '@/hooks/useBudgetData';
 import { useCurrentGoal } from '@/hooks/useCurrentGoal';
 import { useToast } from '@/hooks/useToast';
@@ -31,6 +32,9 @@ export default function Index() {
       console.error('Environment validation error:', error);
     }
   }, []);
+
+  // Get user authentication data
+  const { user } = useAuth();
 
   // Use custom hook for data management
   const {
@@ -97,7 +101,14 @@ export default function Index() {
     <View className="flex-1 bg-background-0">
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={true}>
         <View className="pt-8">
-          {/* Page Header */}
+          {/* User Email Header */}
+          {user?.email && (
+            <View className="mb-4 p-3 bg-primary-50 rounded-lg border border-primary-200">
+              <Text className="text-primary-700 text-sm font-medium">
+                Zalogowany jako: {user.email}
+              </Text>
+            </View>
+          )}
 
           {/* Main Budget Card */}
           {budgetLoading.isLoading ? (

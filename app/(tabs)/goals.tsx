@@ -8,6 +8,7 @@
 import { PlannedTransactionsList } from '@/components/PlannedTransactionsList';
 import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
+import { useAuth } from '@/hooks/useAuth';
 import { usePlannedTransactions } from '@/hooks/usePlannedTransactions';
 import { useToast } from '@/hooks/useToast';
 import React, { useEffect, useState } from 'react';
@@ -22,6 +23,9 @@ export default function Goals() {
       console.error('Environment validation error:', error);
     }
   }, []);
+
+  // Get user authentication data
+  const { user } = useAuth();
 
   // Use custom hook for planned transactions data management
   const {
@@ -71,6 +75,15 @@ export default function Goals() {
     <View className="flex-1 bg-background-0">
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={true}>
         <View className="pt-8">
+          {/* User Email Header */}
+          {user?.email && (
+            <View className="mb-4 p-3 bg-primary-50 rounded-lg border border-primary-200">
+              <Text className="text-primary-700 text-sm font-medium">
+                Zalogowany jako: {user.email}
+              </Text>
+            </View>
+          )}
+
           {/* Page Header */}
           <View className="mb-6">
             <Text className="text-3xl font-bold text-text-900 mb-2">
