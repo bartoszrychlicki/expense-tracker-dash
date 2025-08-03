@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePlannedTransactions } from '@/hooks/usePlannedTransactions';
 import { useToast } from '@/hooks/useToast';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 export default function Goals() {
   // Validate environment variables on component mount
@@ -25,7 +25,7 @@ export default function Goals() {
   }, []);
 
   // Get user authentication data
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Use custom hook for planned transactions data management
   const {
@@ -78,9 +78,25 @@ export default function Goals() {
           {/* User Email Header */}
           {user?.email && (
             <View className="mb-4 p-3 bg-primary-50 rounded-lg border border-primary-200">
-              <Text className="text-primary-700 text-sm font-medium">
-                Zalogowany jako: {user.email}
-              </Text>
+              <HStack className="justify-between items-center">
+                <Text className="text-primary-700 text-sm font-medium">
+                  Zalogowany jako: {user.email}
+                </Text>
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      await signOut();
+                    } catch (error) {
+                      console.error('Sign out error:', error);
+                    }
+                  }}
+                  className="px-3 py-1 bg-red-100 rounded-lg border border-red-200"
+                >
+                  <Text className="text-red-700 text-xs font-medium">
+                    Wyloguj
+                  </Text>
+                </TouchableOpacity>
+              </HStack>
             </View>
           )}
 
