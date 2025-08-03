@@ -7,6 +7,7 @@
 
 import { PlannedTransactionsList } from '@/components/PlannedTransactionsList';
 import { Text } from '@/components/ui/text';
+import { HStack } from '@/components/ui/hstack';
 import { validateEnvironmentVariables } from '@/config/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlannedTransactions } from '@/hooks/usePlannedTransactions';
