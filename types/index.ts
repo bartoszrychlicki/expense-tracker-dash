@@ -3,18 +3,32 @@
  */
 
 /**
- * Represents a financial transaction from Airtable
+ * Base transaction data structure
+ */
+interface BaseTransactionData {
+  /** Transaction name/description */
+  name: string;
+  /** Transaction value */
+  value: number | string;
+  /** Transaction date */
+  date?: string;
+  /** AI-generated category for the transaction */
+  category?: string;
+}
+
+/**
+ * Represents a financial transaction from Airtable (with Airtable field naming)
  */
 export interface Transaction {
   /** Unique identifier for the transaction */
   id: string;
-  /** Transaction name/description */
+  /** Transaction name/description (Airtable field) */
   Name: string;
-  /** AI-generated category for the transaction */
+  /** AI-generated category for the transaction (Airtable field) */
   Ai_Category: string;
-  /** Transaction value as string (can be positive or negative) */
+  /** Transaction value as string (Airtable field) */
   Value: string;
-  /** Transaction date */
+  /** Transaction date (Airtable field) */
   Date: string;
 }
 
@@ -174,18 +188,24 @@ export interface LoadingState {
 
 /**
  * Interface for creating a new transaction
+ * Extends base transaction data with transfer capabilities
  */
-export interface NewTransaction {
-  /** Transaction name/description */
-  name: string;
-  /** Transaction value (positive for expenses, negative for income) */
+export interface NewTransaction extends BaseTransactionData {
+  /** Transaction value as number (for calculations) */
   value: number;
-  /** Optional AI category for the transaction */
-  category?: string;
-  /** Optional date (defaults to today if not provided) */
-  date?: string;
   /** Optional from account ID (for transfers) */
   fromAccountId?: string;
   /** Optional to account ID (for transfers) */
+  toAccountId?: string;
+}
+
+/**
+ * Utility type for transaction creation with flexible value type
+ */
+export type TransactionInput = Omit<BaseTransactionData, 'value'> & {
+  /** Transaction value - can be number or string */
+  value: number | string;
+  /** Optional account transfer fields */
+  fromAccountId?: string;
   toAccountId?: string;
 }

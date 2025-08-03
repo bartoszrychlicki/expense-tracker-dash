@@ -25,7 +25,7 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="dashboard" size={size} color={color} />
+            <FontAwesome name="home" size={size} color={color} />
           ),
         }}
       />
@@ -34,7 +34,7 @@ export default function TabLayout() {
         options={{
           title: 'Cele',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="target" size={size} color={color} />
+            <FontAwesome name="bullseye" size={size} color={color} />
           ),
         }}
       />

@@ -17,72 +17,14 @@ import {
   PlannedTransaction,
   Transaction
 } from '@/types';
+import { getAccountIds } from '@/utils/accountHelpers';
+import { AirtableApiError, makeAirtableRequest } from '@/utils/airtableClient';
+import { getNow } from '@/utils/dateHelpers';
+import { newTransactionToAirtableFields, validateTransaction, createTransferTransaction, createSimpleTransaction } from '@/utils/transactionHelpers';
 
-/**
- * Custom error class for Airtable API errors
- */
-export class AirtableApiError extends Error {
-  constructor(
-    message: string,
-    public status?: number,
-    public details?: any
-  ) {
-    super(message);
-    this.name = 'AirtableApiError';
-  }
-}
+// Re-export for backwards compatibility
+export { AirtableApiError } from '@/utils/airtableClient';
 
-/**
- * Makes an authenticated request to the Airtable API
- */
-async function makeAirtableRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${AIRTABLE_CONFIG.BASE_URL}/${AIRTABLE_CONFIG.BASE_ID}/${endpoint}`;
-  
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new AirtableApiError(
-        errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`,
-        response.status,
-        errorData
-      );
-    }
-
-    return await response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    
-    if (error instanceof AirtableApiError) {
-      throw error;
-    }
-    
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new AirtableApiError('Request timeout');
-    }
-    
-    throw new AirtableApiError(
-      error instanceof Error ? error.message : 'Unknown error occurred'
-    );
-  }
-}
 
 /**
  * Fetches the latest daily budget record from Airtable
@@ -190,61 +132,24 @@ export async function fetchGoalsBalance(): Promise<string> {
 }
 
 /**
- * Creates two transactions for goal savings: income on Goals account and expense on Checking account
- * Both transactions are created in a single API call for data consistency
+ * Creates a transfer transaction from Checking to Goals account for goal savings
+ * Uses helper functions for cleaner code and consistent data handling
  */
 export async function createGoalTransaction(
   goalName: string,
   amount: number
 ): Promise<void> {
   try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const { goalsId, checkingId } = await getAccountIds();
     
-    // First, fetch the record IDs for Goals and Checking accounts
-    const [goalsAccountResponse, checkingAccountResponse] = await Promise.all([
-      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
-        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Goals'&maxRecords=1`
-      ),
-      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
-        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Checking'&maxRecords=1`
-      )
-    ]);
-
-    if (!goalsAccountResponse.records?.length) {
-      throw new AirtableApiError('Goals account not found');
-    }
+    const transaction = createTransferTransaction(
+      `cel długoterminowy: ${goalName}`,
+      amount,
+      checkingId,
+      goalsId
+    );
     
-    if (!checkingAccountResponse.records?.length) {
-      throw new AirtableApiError('Checking account not found');
-    }
-
-    const goalsAccountId = goalsAccountResponse.records[0].id;
-    const checkingAccountId = checkingAccountResponse.records[0].id;
-    
-    
-    const transactionsData = {
-      records: [
-        {
-          fields: {
-            Name: 'cel długoterminowy: ' + goalName,
-            Value: amount,
-            //'transaction date': today,
-            'To Account': [goalsAccountId],
-            'From Account': [checkingAccountId],
-          }
-        }
-      ]
-    };
-    
-    console.log('Transaction data being sent:', JSON.stringify(transactionsData, null, 2));
-
-    const endpoint = AIRTABLE_CONFIG.TABLES.TRANSACTIONS;
-    const response = await makeAirtableRequest(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(transactionsData),
-    });
-    
-    console.log('Airtable response:', JSON.stringify(response, null, 2));
+    await addTransaction(transaction);
   } catch (error) {
     console.error('Error creating goal transaction:', error);
     throw error;
@@ -343,19 +248,15 @@ export function formatTransactionValue(value: string): string {
  */
 export async function addTransaction(transaction: NewTransaction): Promise<Transaction> {
   try {
-    const now = new Date().toISOString(); // Full ISO timestamp
-    
+    // Validate transaction data
+    if (!validateTransaction(transaction)) {
+      throw new AirtableApiError('Invalid transaction data: name and value are required');
+    }
+
     const transactionData = {
       records: [
         {
-          fields: {
-            Name: transaction.name,
-            Value: transaction.value,
-            'transaction date': transaction.date || now,
-            ...(transaction.category && { Ai_Category: transaction.category }),
-            ...(transaction.fromAccountId && { 'From Account': [transaction.fromAccountId] }),
-            ...(transaction.toAccountId && { 'To Account': [transaction.toAccountId] }),
-          }
+          fields: newTransactionToAirtableFields(transaction)
         }
       ]
     };
@@ -380,7 +281,7 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
       Name: record.fields.Name || '',
       Ai_Category: record.fields.Ai_Category || '',
       Value: record.fields.Value?.toString() || '0',
-      Date: record.fields['transaction date'] || now,
+      Date: record.fields['transaction date'] || getNow(),
     };
   } catch (error) {
     console.error('Error creating transaction:', error);
@@ -395,44 +296,20 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
  */
 export async function realizeGoal(goalName: string, finalPrice: number): Promise<void> {
   try {
-    const now = new Date().toISOString(); // Full ISO timestamp
-    
-    // First, fetch the record IDs for Goals and Checking accounts
-    const [goalsAccountResponse, checkingAccountResponse] = await Promise.all([
-      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
-        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Goals'&maxRecords=1`
-      ),
-      makeAirtableRequest<AirtableResponse<AirtableAccountFields>>(
-        `${AIRTABLE_CONFIG.TABLES.ACCOUNTS}?filterByFormula=Name='Checking'&maxRecords=1`
-      )
-    ]);
-
-    if (!goalsAccountResponse.records?.length) {
-      throw new AirtableApiError('Goals account not found');
-    }
-    
-    if (!checkingAccountResponse.records?.length) {
-      throw new AirtableApiError('Checking account not found');
-    }
-
-    const goalsAccountId = goalsAccountResponse.records[0].id;
-    const checkingAccountId = checkingAccountResponse.records[0].id;
+    const { goalsId, checkingId } = await getAccountIds();
     
     // Create both transactions
     await Promise.all([
       // 1. Transfer from Goals to Checking
-      addTransaction({
-        name: `Realizacja celu: ${goalName}`,
-        value: finalPrice,
-        fromAccountId: goalsAccountId,
-        toAccountId: checkingAccountId,
-      }),
+      addTransaction(createTransferTransaction(
+        `Realizacja celu: ${goalName}`,
+        finalPrice,
+        goalsId,
+        checkingId
+      )),
       
       // 2. Expense transaction for the purchase
-      addTransaction({
-        name: goalName,
-        value: finalPrice,
-      }),
+      addTransaction(createSimpleTransaction(goalName, finalPrice)),
     ]);
     
     console.log(`Goal "${goalName}" realized successfully with final price: ${finalPrice} PLN`);
