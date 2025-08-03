@@ -197,6 +197,8 @@ export interface NewTransaction extends BaseTransactionData {
   fromAccountId?: string;
   /** Optional to account ID (for transfers) */
   toAccountId?: string;
+  /** Whether this is a fixed expense (vs variable) */
+  is_fixed?: boolean;
 }
 
 /**

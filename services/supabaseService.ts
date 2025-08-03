@@ -91,13 +91,21 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
     return [];
   }
 
-  return data.map((record): Transaction => ({
-    id: record.id,
-    Name: record.name || '',
-    Ai_Category: record.category || '',
-    Value: record.amount?.toString() || '',
-    Date: record.transaction_date || '',
-  }));
+  return data.map((record): Transaction => {
+    // Determine if this is income or expense based on the transaction type
+    // For now, we'll assume all transactions are expenses (negative)
+    // You can add logic here to determine income vs expense based on your business rules
+    const amount = record.amount || 0;
+    const isExpense = true; // You can modify this logic based on your needs
+    
+    return {
+      id: record.id,
+      Name: record.name || '',
+      Ai_Category: record.category || '',
+      Value: isExpense ? (-amount).toString() : amount.toString(),
+      Date: record.transaction_date || '',
+    };
+  });
 }
 
 /**
@@ -146,6 +154,8 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   if (!user) {
     throw new SupabaseApiError('User not authenticated');
   }
+  
+  console.log('Current user:', user.id);
 
   const now = new Date().toISOString();
 
@@ -154,7 +164,6 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
     name: transaction.name,
     amount: Math.abs(transaction.value),
     transaction_date: transaction.date || now.split('T')[0],
-    is_income: transaction.value > 0,
   };
 
   if (transaction.category) {
@@ -166,7 +175,12 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   if (transaction.toAccountId) {
     insertData.to_account_id = transaction.toAccountId;
   }
+  if (transaction.is_fixed !== undefined) {
+    insertData.is_fixed = transaction.is_fixed;
+  }
 
+  console.log('Inserting transaction data:', insertData);
+  
   const { data, error } = await supabase
     .from('transactions')
     .insert(insertData)
@@ -174,14 +188,17 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
     .single();
 
   if (error) {
+    console.error('Supabase insert error:', error);
     throw new SupabaseApiError(error.message, undefined, error);
   }
+
+  console.log('Transaction inserted successfully:', data);
 
   return {
     id: data.id,
     Name: data.name || '',
     Ai_Category: data.category || '',
-    Value: data.is_income ? data.amount?.toString() : (-data.amount)?.toString() || '0',
+    Value: (-data.amount)?.toString() || '0', // All transactions from this form are expenses (negative)
     Date: data.transaction_date || now.split('T')[0],
   };
 }
@@ -236,7 +253,6 @@ export async function createGoalTransaction(goalName: string, amount: number): P
     category_type: 'goal',
     from_account_id: checkingAccount.id,
     to_account_id: goalsAccount.id,
-    is_income: false,
   });
 
   if (error) {

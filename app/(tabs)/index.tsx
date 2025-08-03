@@ -20,6 +20,7 @@ import { useCurrentGoal } from '@/hooks/useCurrentGoal';
 import { useToast } from '@/hooks/useToast';
 import { createGoalTransaction } from '@/services/airtableService';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -125,6 +126,18 @@ export default function Index() {
               </HStack>
             </View>
           )}
+
+          {/* Add Transaction Button */}
+          <View className="mb-4">
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/add-transaction')}
+              className="bg-primary-600 py-3 rounded-lg"
+            >
+              <Text className="text-white font-medium text-center">
+                + Dodaj transakcję
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Main Budget Card */}
           {budgetLoading.isLoading ? (
