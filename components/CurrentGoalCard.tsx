@@ -1,6 +1,6 @@
 /**
  * CurrentGoalCard Component
- * 
+ *
  * Displays the currently selected goal with progress bar
  */
 
@@ -9,13 +9,13 @@ import { PriceInputDialog } from '@/components/ui/price-input-dialog';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { formatTransactionValue, realizeGoal } from '@/services/airtableService';
-import { PlannedTransaction } from '@/types';
+import { Goal } from '@/types';
 import React, { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 
 interface CurrentGoalCardProps {
   /** The currently selected goal */
-  goal?: PlannedTransaction;
+  goal: Goal | null;
   /** Current balance saved for goals */
   goalsBalance?: string;
   /** Loading state */
@@ -47,15 +47,16 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
 }) => {
   const [isRealizingGoal, setIsRealizingGoal] = useState(false);
   const [isPriceDialogVisible, setIsPriceDialogVisible] = useState(false);
+
   // Calculate real progress percentage based on saved amount
   const calculateProgressPercentage = (): number => {
     if (!goal || !goalsBalance) return 0;
     const savedAmount = parseFloat(goalsBalance);
-    const goalAmount = parseFloat(goal.Value);
+    const goalAmount = parseFloat(goal.target_amount.toString());
     if (isNaN(savedAmount) || isNaN(goalAmount) || goalAmount === 0) return 0;
     return Math.min((savedAmount / goalAmount) * 100, 100); // Cap at 100%
   };
-  
+
   const progressPercentage = Math.round(calculateProgressPercentage());
 
   /**
@@ -73,7 +74,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
    */
   const handleSaveToGoal = async (percentage: number) => {
     if (!onSaveToGoal || !goal) return;
-    
+
     const amount = parseInt(calculateAmount(percentage));
     if (amount <= 0) return;
 
@@ -97,12 +98,12 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
    */
   const handlePriceConfirm = async (price: number) => {
     if (!goal) return;
-    
+
     setIsPriceDialogVisible(false);
     setIsRealizingGoal(true);
-    
+
     try {
-      await realizeGoal(goal.Name, price);
+      await realizeGoal(goal.name, price);
       if (onGoalRealized) {
         await onGoalRealized();
       }
@@ -152,6 +153,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
   }
 
   if (!goal) {
+
     return (
       <VStack className="mb-4 border border-border-300 rounded-lg px-4 py-6" space="sm">
         <Text className="text-lg font-semibold text-text-900">
@@ -170,7 +172,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
       <HStack className="justify-between items-center">
         <View className="flex-1">
           <Text className="text-lg font-semibold text-text-900 mb-1">
-            {goal.Name}
+            {goal.name}
           </Text>
           <Text className="text-sm text-text-500">
             Cel do realizacji
@@ -178,7 +180,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
         </View>
         <View className="items-end">
           <Text className="text-xl font-bold text-text-900">
-            {formatTransactionValue(goal.Value)} PLN
+            {formatTransactionValue(goal.target_amount.toString())} PLN
           </Text>
           <Text className="text-sm font-medium text-primary-600 mt-1">
             Uzbierane: {formatTransactionValue(goalsBalance)} PLN
@@ -196,26 +198,26 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
               {progressPercentage}%
             </Text>
           </HStack>
-          
+
           {/* Progress Bar Container */}
           <View className="h-3 bg-background-200 rounded-full overflow-hidden">
             {/* Progress Bar Fill */}
-            <View 
+            <View
               className="h-full bg-primary-500 rounded-full"
               style={{ width: `${progressPercentage}%` }}
             />
           </View>
-          
+
           {/* Progress Amount */}
           <Text className="text-xs text-text-500 text-center">
-            {formatTransactionValue(goalsBalance)} PLN z {formatTransactionValue(goal.Value)} PLN
+            {formatTransactionValue(goalsBalance)} PLN z {formatTransactionValue(goal.target_amount.toString())} PLN
           </Text>
         </VStack>
 
         {/* Realize Goal Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           className={`py-3 px-4 rounded-lg items-center mt-4 ${
-            progressPercentage >= 100 
+            progressPercentage >= 100
               ? (isRealizingGoal ? 'bg-success-400 opacity-60' : 'bg-success-600')
               : 'bg-gray-400 opacity-50'
           }`}
@@ -230,7 +232,7 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           <Text className={`text-xs mt-1 ${
             progressPercentage >= 100 ? 'text-white opacity-90' : 'text-gray-500'
           }`}>
-            {progressPercentage >= 100 
+            {progressPercentage >= 100
               ? 'Cel osiągnięty - kliknij aby zrealizować'
               : `Cel osiągnięty w ${progressPercentage}% - potrzebujesz ${100 - progressPercentage}% więcej`
             }
@@ -242,9 +244,9 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
           <Text className="text-sm font-medium text-text-700 mb-2">
             Odłóż na cel:
           </Text>
-          
+
           <HStack space="sm" className="justify-between">
-            <TouchableOpacity 
+            <TouchableOpacity
               className={`flex-1 py-3 px-4 rounded-lg items-center ${
                 isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
               }`}
@@ -258,8 +260,8 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
                 ({calculateAmount(5)} PLN)
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               className={`flex-1 py-3 px-4 rounded-lg items-center ${
                 isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
               }`}
@@ -273,8 +275,8 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
                 ({calculateAmount(10)} PLN)
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               className={`flex-1 py-3 px-4 rounded-lg items-center ${
                 isSavingToGoal ? 'bg-primary-400 opacity-60' : 'bg-primary-600'
               }`}
@@ -295,11 +297,11 @@ export const CurrentGoalCard: React.FC<CurrentGoalCardProps> = ({
         <PriceInputDialog
           isVisible={isPriceDialogVisible}
           title="Realizacja celu"
-          message={`Podaj finalną cenę dla "${goal?.Name}":`}
+          message={`Podaj finalną cenę dla "${goal?.name}":`}
           onConfirm={handlePriceConfirm}
           onCancel={handlePriceCancel}
           isLoading={isRealizingGoal}
         />
     </VStack>
   );
-}; 
+};

@@ -33,6 +33,34 @@ export interface Transaction {
 }
 
 /**
+ * Represents a goal from Supabase
+ */
+export interface Goal {
+  /** Unique identifier for the goal */
+  id: string;
+  /** User ID who owns this goal */
+  user_id: string;
+  /** Goal name/description */
+  name: string;
+  /** Target amount for the goal */
+  target_amount: number;
+  /** Current amount saved for the goal */
+  current_amount: number;
+  /** URL to the product (optional) */
+  url?: string;
+  /** Decision date for the goal */
+  decision_date?: string;
+  /** Decision status */
+  decision?: string;
+  /** Whether this is the currently selected goal */
+  is_currently_selected: boolean;
+  /** When the goal was created */
+  created_at: string;
+  /** When the goal was last updated */
+  updated_at: string;
+}
+
+/**
  * Represents daily budget information from Airtable
  */
 export interface DailyBudget {

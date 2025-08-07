@@ -1,17 +1,16 @@
 /**
  * useBudgetData Hook
- * 
+ *
  * Custom hook for managing budget and transaction data fetching.
  * Provides loading states, error handling, and automatic data refresh.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Transaction, DailyBudget, LoadingState } from '@/types';
-import { 
-  fetchLatestDailyBudget, 
+import {
+  fetchLatestDailyBudget,
   fetchRecentTransactions,
-  AirtableApiError 
-} from '@/services/airtableService';
+} from "@/services/supabaseService";
+import { DailyBudget, LoadingState, Transaction } from '@/types';
+import { useCallback, useEffect, useState } from 'react';
 
 interface UseBudgetDataReturn {
   /** Daily budget information */
@@ -49,16 +48,14 @@ export const useBudgetData = (): UseBudgetDataReturn => {
    */
   const loadDailyBudget = useCallback(async () => {
     setBudgetLoading({ isLoading: true, error: undefined });
-    
+
     try {
       const budgetData = await fetchLatestDailyBudget();
       setDailyBudget(budgetData);
       setBudgetLoading({ isLoading: false, error: undefined });
     } catch (error) {
-      const errorMessage = error instanceof AirtableApiError 
-        ? error.message 
-        : 'Nie udało się załadować danych budżetu';
-      
+      const errorMessage = 'Nie udało się załadować danych budżetu';
+
       setBudgetLoading({ isLoading: false, error: errorMessage });
       console.error('Error loading daily budget:', error);
     }
@@ -69,16 +66,14 @@ export const useBudgetData = (): UseBudgetDataReturn => {
    */
   const loadTransactions = useCallback(async () => {
     setTransactionsLoading({ isLoading: true, error: undefined });
-    
+
     try {
       const transactionsData = await fetchRecentTransactions();
       setTransactions(transactionsData);
       setTransactionsLoading({ isLoading: false, error: undefined });
     } catch (error) {
-      const errorMessage = error instanceof AirtableApiError 
-        ? error.message 
-        : 'Nie udało się załadować transakcji';
-      
+      const errorMessage = 'Nie udało się załadować transakcji';
+
       setTransactionsLoading({ isLoading: false, error: errorMessage });
       console.error('Error loading transactions:', error);
     }

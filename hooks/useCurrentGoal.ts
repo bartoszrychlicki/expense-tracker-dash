@@ -1,21 +1,19 @@
 /**
  * useCurrentGoal Hook
- * 
+ *
  * Custom hook for fetching the currently selected goal.
  * Provides loading states, error handling, and automatic data refresh.
  */
 
 import {
-    AirtableApiError,
-    fetchGoalsBalance,
-    fetchPlannedTransactions
-} from '@/services/airtableService';
-import { LoadingState, PlannedTransaction } from '@/types';
+  fetchCurrentGoal
+} from '@/services/supabaseService';
+import { Goal, LoadingState } from '@/types';
 import { useCallback, useEffect, useState } from 'react';
 
 interface UseCurrentGoalReturn {
   /** The currently selected goal */
-  currentGoal?: PlannedTransaction;
+  currentGoal: Goal | null;
   /** Current balance saved for goals */
   goalsBalance: string;
   /** Loading state for the goal data */
@@ -29,7 +27,7 @@ interface UseCurrentGoalReturn {
  */
 export const useCurrentGoal = (): UseCurrentGoalReturn => {
   // State for current goal data
-  const [currentGoal, setCurrentGoal] = useState<PlannedTransaction | undefined>(undefined);
+  const [currentGoal, setCurrentGoal] = useState<Goal | null>(null);
   const [goalsBalance, setGoalsBalance] = useState<string>('0');
   const [loadingState, setLoadingState] = useState<LoadingState>({
     isLoading: true,
@@ -41,26 +39,16 @@ export const useCurrentGoal = (): UseCurrentGoalReturn => {
    */
   const loadCurrentGoal = useCallback(async () => {
     setLoadingState({ isLoading: true, error: undefined });
-    
+
     try {
-      const [transactionsData, balance] = await Promise.all([
-        fetchPlannedTransactions(),
-        fetchGoalsBalance()
-      ]);
-      
-      // Find the currently selected goal
-      const selectedGoal = transactionsData.find(
-        transaction => transaction.Currently_selected_goal === true
-      );
-      
-      setCurrentGoal(selectedGoal);
-      setGoalsBalance(balance);
+      const currentGoal = await fetchCurrentGoal();
+
+      setCurrentGoal(currentGoal);
+      setGoalsBalance(currentGoal?.current_amount.toString() || '0');
       setLoadingState({ isLoading: false, error: undefined });
     } catch (error) {
-      const errorMessage = error instanceof AirtableApiError 
-        ? error.message 
-        : 'Nie udało się załadować aktualnego celu';
-      
+      const errorMessage = 'Nie udało się załadować aktualnego celu';
+
       setLoadingState({ isLoading: false, error: errorMessage });
       console.error('Error loading current goal:', error);
     }
@@ -84,4 +72,4 @@ export const useCurrentGoal = (): UseCurrentGoalReturn => {
     loadingState,
     refreshData,
   };
-}; 
+};
