@@ -1,14 +1,13 @@
 /**
  * usePlannedTransactions Hook
- * 
+ *
  * Custom hook for managing planned transactions data fetching.
  * Provides loading states, error handling, and automatic data refresh.
  */
 
 import {
-    AirtableApiError,
-    fetchPlannedTransactions
-} from '@/services/airtableService';
+  fetchPlannedTransactions
+} from '@/services/supabaseService';
 import { LoadingState, PlannedTransaction } from '@/types';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -37,16 +36,14 @@ export const usePlannedTransactions = (): UsePlannedTransactionsReturn => {
    */
   const loadPlannedTransactions = useCallback(async () => {
     setLoadingState({ isLoading: true, error: undefined });
-    
+
     try {
       const transactionsData = await fetchPlannedTransactions();
       setPlannedTransactions(transactionsData);
       setLoadingState({ isLoading: false, error: undefined });
     } catch (error) {
-      const errorMessage = error instanceof AirtableApiError 
-        ? error.message 
-        : 'Nie udało się załadować planowanych wydatków';
-      
+      const errorMessage = 'Nie udało się załadować planowanych wydatków';
+
       setLoadingState({ isLoading: false, error: errorMessage });
       console.error('Error loading planned transactions:', error);
     }
@@ -69,4 +66,4 @@ export const usePlannedTransactions = (): UsePlannedTransactionsReturn => {
     loadingState,
     refreshData,
   };
-}; 
+};

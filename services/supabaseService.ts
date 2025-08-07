@@ -1,5 +1,5 @@
 import { API_CONFIG } from '@/config/constants';
-import { DailyBudget, NewTransaction, PlannedTransaction, Transaction } from '@/types';
+import { DailyBudget, Goal, NewTransaction, PlannedTransaction, Transaction } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, processLock } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
@@ -68,6 +68,7 @@ export async function fetchLatestDailyBudget(): Promise<DailyBudget> {
 
 /**
  * Fetches recent transactions from Supabase
+ * Filters out planned transactions and returns data compatible with Airtable format
  */
 export async function fetchRecentTransactions(): Promise<Transaction[]> {
   // Get current user
@@ -97,7 +98,7 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
     // You can add logic here to determine income vs expense based on your business rules
     const amount = record.amount || 0;
     const isExpense = true; // You can modify this logic based on your needs
-    
+
     return {
       id: record.id,
       Name: record.name || '',
@@ -146,6 +147,31 @@ export async function fetchPlannedTransactions(): Promise<PlannedTransaction[]> 
 }
 
 /**
+ * Fetches the current goal from Supabase
+ */
+export async function fetchCurrentGoal(): Promise<Goal|null> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new SupabaseApiError('User not authenticated');
+  }
+
+  const { data, error } = await supabase
+    .from('goals')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_currently_selected', true)
+    .limit(1);
+
+  if (error) {
+    throw new SupabaseApiError(error.message, undefined, error);
+  }
+
+  // Return the first goal if any exist, otherwise null
+  return data && data.length > 0 ? data[0] : null;
+}
+
+/**
  * Adds a new transaction to Supabase
  */
 export async function addTransaction(transaction: NewTransaction): Promise<Transaction> {
@@ -154,7 +180,7 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   if (!user) {
     throw new SupabaseApiError('User not authenticated');
   }
-  
+
   console.log('Current user:', user.id);
 
   const now = new Date().toISOString();
@@ -180,7 +206,7 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   }
 
   console.log('Inserting transaction data:', insertData);
-  
+
   const { data, error } = await supabase
     .from('transactions')
     .insert(insertData)
@@ -222,7 +248,7 @@ export async function createGoalTransaction(goalName: string, amount: number): P
     .eq('user_id', user.id)
     .eq('name', 'Goals')
     .single();
-  
+
   if (goalsError) {
     throw new SupabaseApiError(goalsError.message, undefined, goalsError);
   }
@@ -237,7 +263,7 @@ export async function createGoalTransaction(goalName: string, amount: number): P
     .eq('user_id', user.id)
     .eq('name', 'Checking')
     .single();
-  
+
   if (checkingError) {
     throw new SupabaseApiError(checkingError.message, undefined, checkingError);
   }
@@ -308,7 +334,7 @@ export async function realizeGoal(goalName: string, finalPrice: number): Promise
     .eq('user_id', user.id)
     .eq('name', 'Goals')
     .single();
-  
+
   if (goalsError) {
     throw new SupabaseApiError(goalsError.message, undefined, goalsError);
   }
@@ -321,7 +347,7 @@ export async function realizeGoal(goalName: string, finalPrice: number): Promise
     .select('id')
     .eq('name', 'Checking')
     .single();
-  
+
   if (checkingError) {
     throw new SupabaseApiError(checkingError.message, undefined, checkingError);
   }

@@ -1,6 +1,6 @@
 /**
  * Main Dashboard Screen
- * 
+ *
  * Displays the expense tracker dashboard with daily budget information
  * and recent transactions. Uses proper component composition and state management.
  */
@@ -72,20 +72,20 @@ export default function Index() {
    */
   const handleSaveToGoal = async (amount: number) => {
     if (!currentGoal || isSavingToGoal) return;
-    
+
     setIsSavingToGoal(true);
     try {
-      await createGoalTransaction(currentGoal.Name, amount);
-      
+      await createGoalTransaction(currentGoal.name, amount);
+
       // Refresh all data after successful transaction
       await Promise.all([
         refreshData(),
         refreshGoalData(),
       ]);
-      
+
       toast.showSuccess(
         'Środki odłożone!',
-        `Odłożono ${amount} PLN na cel: ${currentGoal.Name}`
+        `Odłożono ${amount} PLN na cel: ${currentGoal.name}`
       );
     } catch (error) {
       console.error('Error saving to goal:', error);
