@@ -1,6 +1,6 @@
 /**
  * Add Transaction Screen
- * 
+ *
  * Allows users to add new transactions to Supabase with name, amount, and is_fixed fields
  */
 
@@ -21,13 +21,14 @@ export default function AddTransactionScreen() {
   const { user } = useAuth();
   const toast = useToast();
   const { refreshData } = useBudgetData();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     amount: '',
     is_fixed: false,
+    isIncome: false, // New field to distinguish between income and expense
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -46,23 +47,24 @@ export default function AddTransactionScreen() {
     try {
       await addTransaction({
         name: formData.name.trim(),
-        value: -amount, // Negative for expense
+        value: formData.isIncome ? -amount : amount, // Negative for income, positive for expense
         date: new Date().toISOString().split('T')[0],
         is_fixed: formData.is_fixed,
       });
 
       toast.showSuccess('Sukces', 'Transakcja została dodana pomyślnie');
-      
+
       // Refresh data to show the new transaction
       await refreshData();
-      
+
       // Reset form
       setFormData({
         name: '',
         amount: '',
         is_fixed: false,
+        isIncome: false,
       });
-      
+
       // Navigate back to dashboard
       router.back();
     } catch (error) {
@@ -108,6 +110,43 @@ export default function AddTransactionScreen() {
                 />
               </VStack>
 
+              {/* Transaction Type Field */}
+              <VStack space="sm">
+                <Text className="text-sm font-medium text-gray-700">
+                  Typ transakcji
+                </Text>
+                <HStack space="md">
+                  <TouchableOpacity
+                    onPress={() => setFormData(prev => ({ ...prev, isIncome: false }))}
+                    className={`flex-1 py-3 px-4 rounded-lg border ${
+                      !formData.isIncome
+                        ? 'bg-red-100 border-red-300'
+                        : 'bg-gray-100 border-gray-300'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      !formData.isIncome ? 'text-red-700' : 'text-gray-600'
+                    }`}>
+                      Wydatek (+)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setFormData(prev => ({ ...prev, isIncome: true }))}
+                    className={`flex-1 py-3 px-4 rounded-lg border ${
+                      formData.isIncome
+                        ? 'bg-green-100 border-green-300'
+                        : 'bg-gray-100 border-gray-300'
+                    }`}
+                  >
+                    <Text className={`text-center font-medium ${
+                      formData.isIncome ? 'text-green-700' : 'text-gray-600'
+                    }`}>
+                      Przychód (-)
+                    </Text>
+                  </TouchableOpacity>
+                </HStack>
+              </VStack>
+
               {/* Amount Field */}
               <VStack space="sm">
                 <Text className="text-sm font-medium text-gray-700">
@@ -131,8 +170,8 @@ export default function AddTransactionScreen() {
                   <TouchableOpacity
                     onPress={() => setFormData(prev => ({ ...prev, is_fixed: false }))}
                     className={`flex-1 py-3 px-4 rounded-lg border ${
-                      !formData.is_fixed 
-                        ? 'bg-primary-100 border-primary-300' 
+                      !formData.is_fixed
+                        ? 'bg-primary-100 border-primary-300'
                         : 'bg-gray-100 border-gray-300'
                     }`}
                   >
@@ -145,8 +184,8 @@ export default function AddTransactionScreen() {
                   <TouchableOpacity
                     onPress={() => setFormData(prev => ({ ...prev, is_fixed: true }))}
                     className={`flex-1 py-3 px-4 rounded-lg border ${
-                      formData.is_fixed 
-                        ? 'bg-primary-100 border-primary-300' 
+                      formData.is_fixed
+                        ? 'bg-primary-100 border-primary-300'
                         : 'bg-gray-100 border-gray-300'
                     }`}
                   >
@@ -172,7 +211,7 @@ export default function AddTransactionScreen() {
                 {isSubmitting ? 'Dodawanie...' : 'Dodaj transakcję'}
               </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               onPress={handleCancel}
               disabled={isSubmitting}
@@ -187,4 +226,4 @@ export default function AddTransactionScreen() {
       </ScrollView>
     </View>
   );
-} 
+}

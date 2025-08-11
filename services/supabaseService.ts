@@ -93,17 +93,15 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
   }
 
   return data.map((record): Transaction => {
-    // Determine if this is income or expense based on the transaction type
-    // For now, we'll assume all transactions are expenses (negative)
-    // You can add logic here to determine income vs expense based on your business rules
+    // Return the actual signed value from the database
+    // Negative amounts = income, Positive amounts = expense
     const amount = record.amount || 0;
-    const isExpense = true; // You can modify this logic based on your needs
 
     return {
       id: record.id,
       Name: record.name || '',
       Ai_Category: record.category || '',
-      Value: isExpense ? (-amount).toString() : amount.toString(),
+      Value: amount.toString(), // Return the actual signed value
       Date: record.transaction_date || '',
     };
   });
@@ -188,7 +186,7 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   const insertData: any = {
     user_id: user.id,
     name: transaction.name,
-    amount: Math.abs(transaction.value),
+    amount: transaction.value, // Store the actual signed value (negative = income, positive = expense)
     transaction_date: transaction.date || now.split('T')[0],
   };
 
@@ -224,7 +222,7 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
     id: data.id,
     Name: data.name || '',
     Ai_Category: data.category || '',
-    Value: (-data.amount)?.toString() || '0', // All transactions from this form are expenses (negative)
+    Value: data.amount?.toString() || '0', // Return the actual signed value
     Date: data.transaction_date || now.split('T')[0],
   };
 }
