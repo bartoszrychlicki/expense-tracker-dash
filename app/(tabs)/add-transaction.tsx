@@ -10,8 +10,9 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useAuth } from '@/hooks/useAuth';
-import { useBudgetData } from '@/hooks/useBudgetData';
+import { useDailyBudget } from '@/hooks/useDailyBudget';
 import { useToast } from '@/hooks/useToast';
+import { useTransactions } from '@/hooks/useTransactions';
 import { addTransaction } from '@/services/supabaseService';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -20,7 +21,8 @@ import { ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
 export default function AddTransactionScreen() {
   const { user } = useAuth();
   const toast = useToast();
-  const { refreshData } = useBudgetData();
+  const { refreshCurrentDayBudget } = useDailyBudget();
+  const { refreshTransactions } = useTransactions();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -55,7 +57,10 @@ export default function AddTransactionScreen() {
       toast.showSuccess('Sukces', 'Transakcja została dodana pomyślnie');
 
       // Refresh data to show the new transaction
-      await refreshData();
+      await Promise.all([
+        refreshCurrentDayBudget(), // Refresh budget data (amount left, expenses today)
+        refreshTransactions(),      // Refresh transactions list
+      ]);
 
       // Reset form
       setFormData({

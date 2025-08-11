@@ -3,6 +3,7 @@ import { DailyBudget, Goal, NewTransaction, PlannedTransaction, Transaction } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, processLock } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
+import { BudgetingService } from './budgetingService';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -81,7 +82,7 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
     .from('transactions')
     .select('*')
     .eq('user_id', user.id)
-    .order('transaction_date', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(API_CONFIG.TRANSACTIONS_LIMIT);
 
   if (error) {
@@ -217,6 +218,23 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
   }
 
   console.log('Transaction inserted successfully:', data);
+
+  // If this is variable income (negative amount and not fixed), recalculate the daily budget
+  if (transaction.value < 0 && !transaction.is_fixed) {
+    try {
+      await BudgetingService.recalculateBudgetForVariableIncome(Math.abs(transaction.value));
+      console.log('Budget recalculated for variable income:', Math.abs(transaction.value));
+    } catch (error) {
+      console.error('Error recalculating budget for variable income:', error);
+      // Don't throw here - the transaction was successful, budget recalculation is secondary
+    }
+  }
+
+  // If this is a variable expense (positive amount and not fixed), the budget display should refresh
+  // The budget amount doesn't change, but the remaining amount does
+  if (transaction.value > 0 && !transaction.is_fixed) {
+    console.log('Variable expense added, budget display should refresh');
+  }
 
   return {
     id: data.id,

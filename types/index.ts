@@ -61,7 +61,7 @@ export interface Goal {
 }
 
 /**
- * Represents daily budget information from Airtable
+ * Represents daily budget information from Airtable (legacy)
  */
 export interface DailyBudget {
   /** Amount left in daily budget */
@@ -82,6 +82,44 @@ export interface DailyBudget {
   automaticSavingsMonthSum?: string;
   /** Sum of automatic goal deposits this month */
   automaticGoalDepositsMonthSum?: string;
+}
+
+/**
+ * Represents daily budget information from BudgetingService
+ */
+export interface DailyBudgetInfo {
+  /** Daily budget limit amount */
+  dailyBudgetLimit: number;
+  /** Amount of daily budget left for today */
+  dailyBudgetLeft: number;
+  /** Today's expenses (sum of variable expenses) */
+  todaysExpenses: number;
+  /** Number of days remaining in the month */
+  daysRemaining: number;
+  /** Total available income for the month */
+  totalAvailableIncome: number;
+  /** Date for this budget calculation */
+  date: string;
+}
+
+/**
+ * Represents budget settings from the database
+ */
+export interface BudgetSettings {
+  /** Unique identifier for the budget setting */
+  id: string;
+  /** User ID who owns this budget setting */
+  user_id: string;
+  /** Daily budget limit amount */
+  daily_budget_limit: number;
+  /** Percentage of daily budget for automatic savings */
+  auto_savings_percent: number;
+  /** Percentage of daily budget for automatic goal deposits */
+  auto_goals_percent: number;
+  /** Whether this budget setting is active */
+  is_active: boolean;
+  /** When this budget setting was created */
+  created_at: string;
 }
 
 /**

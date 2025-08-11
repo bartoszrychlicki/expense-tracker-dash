@@ -7,17 +7,17 @@
 
 import { AutomaticGoalDepositsCard } from '@/components/AutomaticGoalDepositsCard';
 import { AutomaticSavingsCard } from '@/components/AutomaticSavingsCard';
-import { BudgetCard } from '@/components/BudgetCard';
-import { BudgetCardSkeleton } from '@/components/BudgetCardSkeleton';
 import { CurrentGoalCard } from '@/components/CurrentGoalCard';
+import { DailyBudgetDisplay } from '@/components/DailyBudgetDisplay';
 import { TransactionsList } from '@/components/TransactionsList';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { validateEnvironmentVariables } from '@/config/constants';
 import { useAuth } from '@/hooks/useAuth';
-import { useBudgetData } from '@/hooks/useBudgetData';
 import { useCurrentGoal } from '@/hooks/useCurrentGoal';
+import { useDailyBudget } from '@/hooks/useDailyBudget';
 import { useToast } from '@/hooks/useToast';
+import { useTransactions } from '@/hooks/useTransactions';
 import { createGoalTransaction } from '@/services/airtableService';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
@@ -37,14 +37,23 @@ export default function Index() {
   // Get user authentication data
   const { user, signOut } = useAuth();
 
-  // Use custom hook for data management
+  // Use custom hook for daily budget data
   const {
     dailyBudget,
+    loading: budgetLoading,
+    error: budgetError,
+    refreshBudget,
+    forceRefreshBudget,
+    refreshCurrentDayBudget,
+    recalculateForVariableIncome,
+  } = useDailyBudget();
+
+  // Use custom hook for transactions data
+  const {
     transactions,
-    budgetLoading,
     transactionsLoading,
-    refreshData,
-  } = useBudgetData();
+    refreshTransactions,
+  } = useTransactions();
 
   // Use custom hook for current goal
   const {
@@ -60,11 +69,16 @@ export default function Index() {
   // Loading state for goal saving
   const [isSavingToGoal, setIsSavingToGoal] = React.useState(false);
 
-  // Refresh current goal data when screen comes into focus
+  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      refreshGoalData();
-    }, [refreshGoalData])
+      // Refresh all data when screen comes into focus
+      Promise.all([
+        refreshCurrentDayBudget(), // Refresh budget data
+        refreshTransactions(),      // Refresh transactions list
+        refreshGoalData(),         // Refresh goal data
+      ]);
+    }, [refreshCurrentDayBudget, refreshTransactions, refreshGoalData])
   );
 
   /**
@@ -79,7 +93,8 @@ export default function Index() {
 
       // Refresh all data after successful transaction
       await Promise.all([
-        refreshData(),
+        refreshCurrentDayBudget(), // Refresh budget data to show updated expenses
+        refreshTransactions(),
         refreshGoalData(),
       ]);
 
@@ -139,60 +154,53 @@ export default function Index() {
             </TouchableOpacity>
           </View>
 
-          {/* Main Budget Card */}
-          {budgetLoading.isLoading ? (
-            <BudgetCardSkeleton />
-          ) : budgetLoading.error ? (
-            <View className="mb-4 p-6 border border-error-300 rounded-lg items-center">
-              <Text className="text-error-600 text-center">
-                Błąd: {budgetLoading.error}
-              </Text>
-            </View>
-          ) : (
-            <BudgetCard
-              value={dailyBudget.dailyBudgetLeft}
-              label="Zostało na dzisiaj"
-              size="lg"
-            />
-          )}
+          {/* Temporary Debug Button - Remove after testing */}
+          <View className="mb-4">
+            <TouchableOpacity
+              onPress={async () => {
+                console.log('🔍 Debug button clicked!');
+                console.log('🔍 Current dailyBudget:', dailyBudget);
+                console.log('🔍 Current budgetLoading:', budgetLoading);
+                console.log('🔍 Current budgetError:', budgetError);
 
-          {/* Budget Summary Cards */}
-          <HStack space="md" className="mb-4">
-            {budgetLoading.isLoading ? (
-              <>
-                <BudgetCardSkeleton size="md" className="flex-1 mb-0" />
-                <BudgetCardSkeleton size="md" className="flex-1 mb-0" />
-              </>
-            ) : (
-              <>
-                <BudgetCard
-                  value={dailyBudget.todaysVariableDailyLimit}
-                  label="Całkowity budżet na dziś"
-                  className="flex-1 mb-0"
-                />
-                <BudgetCard
-                  value={dailyBudget.dailySpentSum}
-                  label="Wydałem dzisiaj"
-                  className="flex-1 mb-0"
-                />
-              </>
-            )}
-          </HStack>
+                try {
+                  console.log('🔍 Calling forceRefreshBudget...');
+                  await forceRefreshBudget();
+                  console.log('🔍 forceRefreshBudget completed');
+                  console.log('🔍 New dailyBudget:', dailyBudget);
+                } catch (error) {
+                  console.error('🔍 Error in forceRefreshBudget:', error);
+                }
+              }}
+              className="bg-yellow-500 py-3 rounded-lg"
+            >
+              <Text className="text-white font-medium text-center">
+                🔄 Force Refresh Budget (Debug)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Daily Budget Display */}
+          <DailyBudgetDisplay
+            dailyBudget={dailyBudget}
+            loading={budgetLoading}
+            error={budgetError}
+          />
 
           {/* Automatic Savings and Goal Deposits Cards */}
           <HStack space="md" className="mb-4">
             <AutomaticSavingsCard
-              amount={dailyBudget.automaticSavingsToday}
-              percentage={dailyBudget.automaticSavingsPercentage}
-              monthSum={dailyBudget.automaticSavingsMonthSum}
-              isLoading={budgetLoading.isLoading}
+              amount="0"
+              percentage="0"
+              monthSum="0"
+              isLoading={budgetLoading}
               className="flex-1"
             />
             <AutomaticGoalDepositsCard
-              amount={dailyBudget.automaticGoalDepositsToday}
-              percentage={dailyBudget.automaticGoalDepositsPercentage}
-              monthSum={dailyBudget.automaticGoalDepositsMonthSum}
-              isLoading={budgetLoading.isLoading}
+              amount="0"
+              percentage="0"
+              monthSum="0"
+              isLoading={budgetLoading}
               className="flex-1"
             />
           </HStack>
@@ -203,16 +211,19 @@ export default function Index() {
             goalsBalance={goalsBalance}
             isLoading={goalLoading.isLoading}
             error={goalLoading.error}
-            dailyBudget={dailyBudget.todaysVariableDailyLimit}
+            dailyBudget={dailyBudget ? Math.floor(dailyBudget.dailyBudgetLimit).toString() : "0"}
             onSaveToGoal={handleSaveToGoal}
             isSavingToGoal={isSavingToGoal}
-            onGoalRealized={refreshData}
+            onGoalRealized={refreshBudget}
           />
 
           {/* Transactions List */}
           <TransactionsList
             transactions={transactions}
-            loadingState={transactionsLoading}
+            loadingState={{
+              isLoading: transactionsLoading.isLoading,
+              error: transactionsLoading.error || undefined
+            }}
           />
         </View>
       </ScrollView>
