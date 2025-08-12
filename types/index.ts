@@ -106,20 +106,18 @@ export interface DailyBudgetInfo {
  * Represents budget settings from the database
  */
 export interface BudgetSettings {
-  /** Unique identifier for the budget setting */
-  id: string;
   /** User ID who owns this budget setting */
   user_id: string;
+  /** Date for this budget setting (YYYY-MM-DD) */
+  day: string;
   /** Daily budget limit amount */
   daily_budget_limit: number;
   /** Percentage of daily budget for automatic savings */
   auto_savings_percent: number;
   /** Percentage of daily budget for automatic goal deposits */
   auto_goals_percent: number;
-  /** Whether this budget setting is active */
-  is_active: boolean;
-  /** When this budget setting was created */
-  created_at: string;
+  /** When this budget setting was last updated */
+  updated_at: string;
 }
 
 /**

@@ -355,7 +355,7 @@ export class BudgetingService {
     return remainingBudget;
   }
 
-  /**
+    /**
    * Get budget settings for a specific date
    */
   private static async getBudgetForDate(date: string): Promise<BudgetSettings | null> {
@@ -370,8 +370,7 @@ export class BudgetingService {
       .from('budget_settings')
       .select('*')
       .eq('user_id', user.id)
-      .gte('created_at', date + 'T00:00:00')
-      .lt('created_at', date + 'T23:59:00')
+      .eq('day', date)
       .single();
 
     if (error) {
@@ -401,12 +400,14 @@ export class BudgetingService {
 
     const { data, error } = await supabase
       .from('budget_settings')
-      .insert({
+      .upsert({
         user_id: user.id,
+        day: date,
         daily_budget_limit: dailyBudgetLimit,
         auto_savings_percent: defaultPercentages.auto_savings_percent,
-        auto_goals_percent: defaultPercentages.auto_goals_percent,
-        is_active: true
+        auto_goals_percent: defaultPercentages.auto_goals_percent
+      }, {
+        onConflict: 'user_id,day'
       })
       .select('*')
       .single();
@@ -432,7 +433,7 @@ export class BudgetingService {
       .from('budget_settings')
       .select('auto_savings_percent, auto_goals_percent')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(1)
       .single();
 
@@ -487,7 +488,8 @@ export class BudgetingService {
     const { error } = await supabase
       .from('budget_settings')
       .update({ daily_budget_limit: newDailyBudget })
-      .eq('id', currentBudget.id);
+      .eq('user_id', currentBudget.user_id)
+      .eq('day', currentBudget.day);
 
     if (error) {
       throw new SupabaseApiError(error.message, undefined, error);
@@ -514,7 +516,8 @@ export class BudgetingService {
       const { error } = await supabase
         .from('budget_settings')
         .delete()
-        .eq('id', existingBudget.id);
+        .eq('user_id', existingBudget.user_id)
+        .eq('day', existingBudget.day);
 
       if (error) {
         console.error('Error deleting existing budget:', error);
