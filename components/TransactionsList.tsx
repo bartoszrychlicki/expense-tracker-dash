@@ -1,6 +1,6 @@
 /**
  * TransactionsList Component
- * 
+ *
  * Displays a list of recent transactions with loading and error states.
  * Provides a clean, organized view of transaction history.
  */
@@ -46,7 +46,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
           {title}
         </Heading>
       </Box>
-      
+
       <Divider />
 
       {/* Content */}
@@ -67,12 +67,15 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
           <Text className="text-typography-500">Brak transakcji do wyświetlenia</Text>
         </Box>
       ) : (
-        transactions.map((transaction) => (
-          <TransactionItem 
-            key={transaction.id} 
-            transaction={transaction} 
-          />
-        ))
+        transactions.map((transaction) => {
+          const stableKey = `${transaction.id}-${transaction.Date}-${transaction.Value}`;
+          return (
+            <TransactionItem
+              key={stableKey}
+              transaction={transaction}
+            />
+          );
+        })
       )}
     </VStack>
   );

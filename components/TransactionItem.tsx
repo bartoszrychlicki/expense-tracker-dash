@@ -1,6 +1,6 @@
 /**
  * TransactionItem Component
- * 
+ *
  * Displays a single transaction with appropriate styling based on
  * whether it's income (positive) or expense (negative).
  */
@@ -29,32 +29,31 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
 }) => {
   const isExpense = isPositiveTransaction(transaction.Value);
   const formattedValue = formatTransactionValue(transaction.Value);
-  
+
   // For display: expenses (positive values) show as red with minus
   // income (negative values) show as green with plus
   const displayValue = isExpense ? `-${formattedValue}` : `+${Math.abs(parseFloat(transaction.Value)).toString()}`;
 
   return (
-    <HStack 
-      space="lg" 
-      key={transaction.id} 
+    <HStack
+      space="lg"
       className={`w-full px-4 py-2 items-center ${className}`}
     >
       {/* Transaction Value Circle */}
-      <Box 
+      <Box
         className={`rounded-full h-12 w-12 items-center justify-center ${
           isExpense ? 'bg-error-100' : 'bg-success-100'
         }`}
       >
         <VStack className="items-center justify-center" space="xs">
-          <Text 
+          <Text
             className={`text-xs font-medium leading-tight ${
               isExpense ? 'text-error-800' : 'text-success-800'
             }`}
           >
             {displayValue}
           </Text>
-          <Text 
+          <Text
             className={`text-xs font-normal leading-tight ${
               isExpense ? 'text-error-600' : 'text-success-600'
             }`}
