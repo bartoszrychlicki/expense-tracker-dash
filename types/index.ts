@@ -102,6 +102,16 @@ export interface DailyBudgetInfo {
   date: string;
   /** Auto-goals amount deducted from daily budget */
   autoGoalsAmount?: number;
+  /** Auto-savings amount deducted from daily budget */
+  autoSavingsAmount?: number;
+  /** Today's auto-savings percentage (0-100, from budget_settings) */
+  autoSavingsPercent?: number;
+  /** Today's auto-goals percentage (0-100, from budget_settings) */
+  autoGoalsPercent?: number;
+  /** Month-to-date sum of auto-savings transactions */
+  autoSavingsMonthSum?: number;
+  /** Month-to-date sum of auto-goals transactions */
+  autoGoalsMonthSum?: number;
 }
 
 /**

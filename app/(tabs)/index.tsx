@@ -45,7 +45,7 @@ export default function Index() {
     refreshBudget,
     forceRefreshBudget,
     refreshCurrentDayBudget,
-    recalculateForVariableIncome,
+    // recalculateForVariableIncome,
   } = useDailyBudget();
 
   // Use custom hook for transactions data
@@ -190,16 +190,16 @@ export default function Index() {
           {/* Automatic Savings and Goal Deposits Cards */}
           <HStack space="md" className="mb-4">
             <AutomaticSavingsCard
-              amount="0"
-              percentage="0"
-              monthSum="0"
+              amount={(dailyBudget?.autoSavingsAmount ?? 0).toString()}
+              percentage={((dailyBudget?.autoSavingsPercent ?? 0) / 100).toString()}
+              monthSum={(dailyBudget?.autoSavingsMonthSum ?? 0).toString()}
               isLoading={budgetLoading}
               className="flex-1"
             />
             <AutomaticGoalDepositsCard
-              amount="0"
-              percentage="0"
-              monthSum="0"
+              amount={(dailyBudget?.autoGoalsAmount ?? 0).toString()}
+              percentage={((dailyBudget?.autoGoalsPercent ?? 0) / 100).toString()}
+              monthSum={(dailyBudget?.autoGoalsMonthSum ?? 0).toString()}
               isLoading={budgetLoading}
               className="flex-1"
             />

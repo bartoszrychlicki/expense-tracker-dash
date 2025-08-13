@@ -232,10 +232,19 @@ export class BudgetingService {
 
     // Create auto transactions only if we truly created a new budget row (single-winner semantics)
     if (createdNewBudget) {
-      const shouldAllocateAutoGoals = await BudgetingService.shouldCreateAutoGoalsToday(user, date);
       await BudgetingService.ensureAutoTransactionsForDay(user, date, autoSavingsAmount, autoGoalsAmount);
-      if (shouldAllocateAutoGoals && autoGoalsAmount > 0) {
-        await BudgetingService.allocateAutoGoalsToGoals(autoGoalsAmount);
+      // Fetch the actual auto-goals amount for today, then allocate (robust vs rounding/conflicts)
+      const { data: autoGoalsTx } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('transaction_date', date)
+        .eq('is_savings_op', true)
+        .eq('name', 'Automatyczne cele')
+        .maybeSingle();
+      const todaysAutoGoalsAmount = autoGoalsTx?.amount || 0;
+      if (todaysAutoGoalsAmount > 0) {
+        await BudgetingService.allocateAutoGoalsToGoals(todaysAutoGoalsAmount);
       }
     }
 
@@ -299,7 +308,7 @@ export class BudgetingService {
     // Get all currently selected goals with auto_savings_percent > 0
     const { data: goals, error: goalsError } = await supabase
       .from('goals')
-      .select('id, name, auto_savings_percent, current_amount')
+      .select('id, name, auto_savings_percent, current_amount, user_id')
       .eq('user_id', user.id)
       .eq('is_currently_selected', true)
       .gt('auto_savings_percent', 0)
@@ -326,25 +335,35 @@ export class BudgetingService {
     }
 
     // Allocate auto-goals amount to each goal proportionally
-    for (const goal of goals) {
+    // Use rounding-up to cents and ensure the last goal receives the remaining cents
+    let remainingToAllocate = BudgetingService.roundUpToCents(autoGoalsAmount);
+    for (let i = 0; i < goals.length; i++) {
+      const goal = goals[i];
       const goalPercentage = goal.auto_savings_percent || 0;
-      if (goalPercentage > 0) {
-        // Calculate this goal's share of the auto-goals amount
-        const goalShare = (autoGoalsAmount * goalPercentage) / totalGoalPercentage;
+      if (goalPercentage <= 0) continue;
 
-        console.log('🔍 Allocating to goal:', {
-          goalName: goal.name,
-          goalPercentage,
-          goalShare,
-          currentAmount: goal.current_amount || 0
-        });
+      // Proportional share
+      let goalShareRaw = (autoGoalsAmount * goalPercentage) / totalGoalPercentage;
+      let goalShare = i < goals.length - 1
+        ? BudgetingService.roundUpToCents(goalShareRaw)
+        : BudgetingService.roundUpToCents(remainingToAllocate); // assign the rest to last goal
 
-        // Update the goal's current_amount
-        const newAmount = (goal.current_amount || 0) + goalShare;
+      // Track remaining
+      remainingToAllocate = BudgetingService.roundUpToCents(remainingToAllocate - goalShare);
+
+      const currentAmount = goal.current_amount || 0;
+      const newAmount = BudgetingService.roundUpToCents(currentAmount + goalShare);
+
+      // Skip update if no actual change to avoid 0-row updates
+      if (Math.abs(newAmount - currentAmount) < 0.005) {
+        console.log('🔍 Skipping update for goal (no change):', goal.name);
+        continue;
+      }
+
         console.log('🔍 Updating goal:', {
           goalId: goal.id,
           goalName: goal.name,
-          oldAmount: goal.current_amount || 0,
+        oldAmount: currentAmount,
           goalShare,
           newAmount
         });
@@ -358,9 +377,17 @@ export class BudgetingService {
           console.error('🔍 Error updating goal amount:', updateError);
           throw new SupabaseApiError(`Failed to update goal ${goal.name}`, undefined, updateError);
         }
-
-        console.log('🔍 Successfully updated goal:', goal.name, 'new amount:', newAmount);
+      // Verify via separate select (avoids 406 on update)
+      const { data: verifyRow, error: verifyError } = await supabase
+        .from('goals')
+        .select('id, current_amount')
+        .eq('id', goal.id)
+        .maybeSingle();
+      if (verifyError) {
+        console.error('🔍 Error verifying goal after update:', verifyError);
+        throw new SupabaseApiError(`Failed to verify goal ${goal.name} after update`, undefined, verifyError);
       }
+      console.log('🔍 Verified goal amount:', goal.name, 'current_amount:', verifyRow?.current_amount);
     }
 
     console.log('🔍 Auto-goals allocation completed successfully');
@@ -386,79 +413,51 @@ export class BudgetingService {
     date: string,
     autoSavingsAmount: number,
     autoGoalsAmount: number,
-  ): Promise<void> {
+  ): Promise<{ createdSavings: boolean; createdGoals: boolean; }> {
+    let createdSavings = false;
+    let createdGoals = false;
     // Auto savings
     if (autoSavingsAmount > 0) {
-      const { data: existingSavings } = await supabase
-        .from('transactions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('transaction_date', date)
-        .eq('is_savings_op', true)
-        .eq('name', 'Automatyczne oszczędzanie')
-        .maybeSingle();
-      if (!existingSavings) {
-        const { error: insertSavingsError } = await supabase.from('transactions').insert({
-          user_id: user.id,
-          name: 'Automatyczne oszczędzanie',
-          amount: autoSavingsAmount,
-          transaction_date: date,
-          is_savings_op: true,
-        });
-        if (insertSavingsError) {
+      const { error: insertSavingsError } = await supabase.from('transactions').insert({
+        user_id: user.id,
+        name: 'Automatyczne oszczędzanie',
+        amount: autoSavingsAmount,
+        transaction_date: date,
+        is_savings_op: true,
+      });
+      if (insertSavingsError) {
+        // If duplicate due to rare race/constraint, ignore; otherwise throw
+        const isDuplicate = (insertSavingsError as any).code === '23505' || (insertSavingsError.message || '').toLowerCase().includes('duplicate');
+        if (!isDuplicate) {
           throw new SupabaseApiError('Failed to create auto savings transaction', undefined, insertSavingsError);
         }
+      } else {
+        createdSavings = true;
       }
     }
 
     // Auto goals
     if (autoGoalsAmount > 0) {
-      const { data: existingGoals } = await supabase
-        .from('transactions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('transaction_date', date)
-        .eq('is_savings_op', true)
-        .eq('name', 'Automatyczne cele')
-        .maybeSingle();
-      if (!existingGoals) {
-        const { error: insertGoalsError } = await supabase.from('transactions').insert({
-          user_id: user.id,
-          name: 'Automatyczne cele',
-          amount: autoGoalsAmount,
-          transaction_date: date,
-          is_savings_op: true,
-        });
-        if (insertGoalsError) {
+      const { error: insertGoalsError } = await supabase.from('transactions').insert({
+        user_id: user.id,
+        name: 'Automatyczne cele',
+        amount: autoGoalsAmount,
+        transaction_date: date,
+        is_savings_op: true,
+      });
+      if (insertGoalsError) {
+        const isDuplicate = (insertGoalsError as any).code === '23505' || (insertGoalsError.message || '').toLowerCase().includes('duplicate');
+        if (!isDuplicate) {
           throw new SupabaseApiError('Failed to create auto goals transaction', undefined, insertGoalsError);
         }
+      } else {
+        createdGoals = true;
       }
     }
+    return { createdSavings, createdGoals };
   }
 
-  private static async didCreateAutoGoalsToday(user: User, date: string): Promise<boolean> {
-    const { data } = await supabase
-      .from('transactions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('transaction_date', date)
-      .eq('is_savings_op', true)
-      .eq('name', 'Automatyczne cele')
-      .maybeSingle();
-    return !!data;
-  }
-
-  private static async shouldCreateAutoGoalsToday(user: User, date: string): Promise<boolean> {
-    const { data } = await supabase
-      .from('transactions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('transaction_date', date)
-      .eq('is_savings_op', true)
-      .eq('name', 'Automatyczne cele')
-      .maybeSingle();
-    return !data;
-  }
+  // Removed predicate helpers; allocation depends on actual creation result
 
   private static async buildDailyBudgetInfo(user: User, date: string): Promise<DailyBudgetInfo> {
     const targetDate = new Date(date + 'T00:00:00');
@@ -546,6 +545,24 @@ export class BudgetingService {
     const daysRemaining = daysInMonth - dayOfMonth + 1;
     const dailyBudgetLeft = dailyBudgetLimit - todaysExpenses;
 
+    // Percentages from today's settings
+    const autoSavingsPercent = todaySetting.auto_savings_percent || 0;
+    const autoGoalsPercent = todaySetting.auto_goals_percent || 0;
+
+    // Month sums for auto transactions
+    const { data: monthAutoTx, error: monthAutoTxError } = await supabase
+      .from('transactions')
+      .select('amount, name, is_savings_op, transaction_date')
+      .eq('user_id', user.id)
+      .gte('transaction_date', firstDayOfMonth)
+      .lte('transaction_date', date)
+      .eq('is_savings_op', true);
+    if (monthAutoTxError) {
+      throw new SupabaseApiError('Failed to fetch monthly auto transactions', undefined, monthAutoTxError);
+    }
+    const autoSavingsMonthSum = (monthAutoTx || []).reduce((sum: number, t: any) => t.name === 'Automatyczne oszczędzanie' ? sum + (t.amount || 0) : sum, 0);
+    const autoGoalsMonthSum = (monthAutoTx || []).reduce((sum: number, t: any) => t.name === 'Automatyczne cele' ? sum + (t.amount || 0) : sum, 0);
+
     return {
       dailyBudgetLimit,
       dailyBudgetLeft,
@@ -554,6 +571,11 @@ export class BudgetingService {
       totalAvailableIncome,
       date,
       autoGoalsAmount,
+      autoSavingsAmount,
+      autoSavingsPercent,
+      autoGoalsPercent,
+      autoSavingsMonthSum,
+      autoGoalsMonthSum,
     };
   }
 }
