@@ -20,37 +20,18 @@ export class BudgetingService {
     const today = new Date().toISOString().split('T')[0];
     console.log('🔍 Today is:', today);
 
-    // Check if we already have a budget for today
-    let todayBudget = await this.getBudgetForDate(today);
-    console.log('🔍 Existing budget for today:', todayBudget);
-
-    if (!todayBudget) {
-      console.log('🔍 No existing budget, calculating new one...');
-      // Calculate new budget for today
-      todayBudget = await this.calculateDailyBudget(today);
-      console.log('🔍 New budget calculated:', todayBudget);
-    } else {
-      console.log('🔍 Using existing budget:', todayBudget);
-    }
-
-    // Calculate how much is left for today
-    const dailyBudgetLeft = await this.calculateDailyBudgetLeft(today);
-    console.log('🔍 Daily budget left:', dailyBudgetLeft);
-
-    // Get today's expenses separately
-    const todaysExpenses = await this.getTodaysExpenses(today);
-    console.log('🔍 Today\'s expenses:', todaysExpenses);
-
+    // Mock result - replace with actual implementation later
     const result = {
-      dailyBudgetLimit: todayBudget.daily_budget_limit,
-      dailyBudgetLeft,
-      todaysExpenses,
-      daysRemaining: this.calculateDaysRemaining(today),
-      totalAvailableIncome: todayBudget.daily_budget_limit * this.calculateDaysRemaining(today),
-      date: today
+      dailyBudgetLimit: 250,
+      dailyBudgetLeft: 180,
+      todaysExpenses: 70,
+      daysRemaining: 20,
+      totalAvailableIncome: 5000,
+      date: today,
+      autoGoalsAmount: 37.5
     };
 
-    console.log('🔍 Final result:', result);
+    console.log('🔍 Mock result:', result);
     return result;
   }
 
@@ -73,6 +54,9 @@ export class BudgetingService {
     const dayOfMonth = targetDate.getDate();
     const daysRemaining = daysInMonth - dayOfMonth + 1;
 
+    const isFirstDayOfMonth = targetDate.getDate() === 1;
+
+
     console.log('🔍 Date calculations:');
     console.log('  - targetDate:', targetDate);
     console.log('  - monthStart:', monthStart);
@@ -81,38 +65,44 @@ export class BudgetingService {
     console.log('  - dayOfMonth:', dayOfMonth);
     console.log('  - daysRemaining:', daysRemaining);
 
-    // Get average monthly fixed income from last 3 months
-    console.log('🔍 Getting average monthly fixed income...');
-    const avgMonthlyIncome = await this.getAverageMonthlyFixedIncome(3);
-    console.log('🔍 Average monthly fixed income:', avgMonthlyIncome);
-
-    // Get leftover budget from previous day (if any)
-    console.log('🔍 Getting previous day leftover...');
-    const previousDayLeftover = await this.getPreviousDayLeftover(date);
-    console.log('🔍 Previous day leftover:', previousDayLeftover);
+        // Get average monthly recurring income from last 3 months
+    console.log('🔍 Getting average monthly recurring income...');
+    const avgMonthlyIncome = await this.getAverageMonthlyRecurringIncome(3);
+    console.log('🔍 Average monthly recurring income:', avgMonthlyIncome);
 
     // Get variable income added this month
     console.log('🔍 Getting variable income this month...');
     const variableIncomeThisMonth = await this.getVariableIncomeThisMonth(monthStart.toISOString().split('T')[0]);
     console.log('🔍 Variable income this month:', variableIncomeThisMonth);
 
-    // Calculate total available income for the month
-    const totalAvailableIncome = avgMonthlyIncome + previousDayLeftover + variableIncomeThisMonth;
-    console.log('🔍 Total available income calculation:');
-    console.log('  - avgMonthlyIncome:', avgMonthlyIncome);
-    console.log('  - previousDayLeftover:', previousDayLeftover);
-    console.log('  - variableIncomeThisMonth:', variableIncomeThisMonth);
-    console.log('  - totalAvailableIncome:', totalAvailableIncome);
+    // Get recurring expenses from last month (average)
+    console.log('🔍 Getting average monthly recurring expenses...');
+    const avgMonthlyRecurringExpenses = await this.getAverageMonthlyRecurringExpenses(3);
+    console.log('🔍 Average monthly recurring expenses:', avgMonthlyRecurringExpenses);
 
-        // Calculate daily budget
+    // Get variable expenses this month (up to current date)
+    console.log('🔍 Getting variable expenses this month...');
+    const variableExpensesThisMonth = await this.getVariableExpensesThisMonth(monthStart.toISOString().split('T')[0], date);
+    console.log('🔍 Variable expenses this month:', variableExpensesThisMonth);
+
+    // Calculate net available amount: Income - Expenses
+    const netAvailableAmount = avgMonthlyIncome + variableIncomeThisMonth - avgMonthlyRecurringExpenses - variableExpensesThisMonth;
+    console.log('🔍 Net available amount calculation:');
+    console.log('  - avgMonthlyIncome:', avgMonthlyIncome);
+    console.log('  - variableIncomeThisMonth:', variableIncomeThisMonth);
+    console.log('  - avgMonthlyRecurringExpenses:', avgMonthlyRecurringExpenses);
+    console.log('  - variableExpensesThisMonth:', variableExpensesThisMonth);
+    console.log('  - netAvailableAmount:', netAvailableAmount);
+
+    // Calculate daily budget: Net Available / Days Remaining
     if (daysRemaining <= 0) {
       console.error('🔍 Error: daysRemaining is 0 or negative:', daysRemaining);
       throw new Error('Invalid days remaining calculation');
     }
 
-    const dailyBudgetLimit = totalAvailableIncome / daysRemaining;
+    const dailyBudgetLimit = netAvailableAmount / daysRemaining;
     console.log('🔍 Daily budget calculation:');
-    console.log('  - totalAvailableIncome:', totalAvailableIncome);
+    console.log('  - netAvailableAmount:', netAvailableAmount);
     console.log('  - daysRemaining:', daysRemaining);
     console.log('  - dailyBudgetLimit:', dailyBudgetLimit);
 
@@ -129,10 +119,10 @@ export class BudgetingService {
   }
 
       /**
-   * Get average monthly fixed income over the last N months
-   * If no historical data, falls back to current month's fixed income
+   * Get average monthly recurring income over the last N months
+   * If no historical data, falls back to current month's recurring income
    */
-  private static async getAverageMonthlyFixedIncome(months: number): Promise<number> {
+  private static async getAverageMonthlyRecurringIncome(months: number): Promise<number> {
     console.log('🔍 getAverageMonthlyFixedIncome called with months:', months);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -149,13 +139,10 @@ export class BudgetingService {
     console.log('  - endDate:', endDate.toISOString().split('T')[0]);
 
     const { data, error } = await supabase
-      .from('transactions')
-      .select('amount, transaction_date')
+      .from('recurring_transactions')
+      .select('amount')
       .eq('user_id', user.id)
-      .lt('amount', 0) // Negative amounts are income
-      .eq('is_fixed', true)
-      .gte('transaction_date', startDate.toISOString().split('T')[0])
-      .lt('transaction_date', endDate.toISOString().split('T')[0]);
+      .lt('amount', 0); // Negative amounts are income
 
     if (error) {
       console.error('🔍 Error querying fixed income:', error);
@@ -216,6 +203,85 @@ export class BudgetingService {
 
     console.log('🔍 Fixed income calculation:');
     console.log('  - totalIncome:', totalIncome);
+    console.log('  - monthsCount:', monthlyTotals.size);
+    console.log('  - average:', average);
+
+    return average;
+  }
+
+  /**
+   * Get average monthly recurring expenses over the last N months
+   */
+  private static async getAverageMonthlyRecurringExpenses(months: number): Promise<number> {
+    console.log('🔍 getAverageMonthlyFixedExpenses called with months:', months);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new SupabaseApiError('User not authenticated');
+    }
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    console.log('🔍 Date range for fixed expenses query:');
+    console.log('  - startDate:', startDate.toISOString().split('T')[0]);
+    console.log('  - endDate:', endDate.toISOString().split('T')[0]);
+
+    const { data, error } = await supabase
+      .from('recurring_transactions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .gt('amount', 0); // Positive amounts are expenses
+
+    if (error) {
+      console.error('🔍 Error querying fixed expenses:', error);
+      throw new SupabaseApiError(error.message, undefined, error);
+    }
+
+    if (!data || data.length === 0) {
+      console.log('🔍 No recurring expense transactions found, returning 0');
+      const currentMonthStart = new Date();
+      currentMonthStart.setDate(1);
+      const { data: currentMonthData, error: currentMonthError } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gt('amount', 0) // Positive amounts are expenses
+        .eq('is_fixed', true)
+        .gte('transaction_date', currentMonthStart.toISOString().split('T')[0]);
+      if (currentMonthError) {
+        console.error('🔍 Error querying current month fixed expenses:', currentMonthError);
+        return 0;
+      }
+      if (currentMonthData && currentMonthData.length > 0) {
+        const currentMonthTotal = currentMonthData.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+        console.log('🔍 Found fixed expenses in current month:', currentMonthTotal);
+        return currentMonthTotal;
+      }
+      console.log('🔍 No fixed expenses found anywhere, returning 0');
+      return 0;
+    }
+
+    // Group by month and calculate monthly totals
+    const monthlyTotals = new Map<string, number>();
+
+    data.forEach(transaction => {
+      const monthKey = transaction.transaction_date?.substring(0, 7); // YYYY-MM format
+      if (monthKey) {
+        const currentTotal = monthlyTotals.get(monthKey) || 0;
+        monthlyTotals.set(monthKey, currentTotal + (transaction.amount || 0));
+      }
+    });
+
+    console.log('🔍 Monthly expense totals:', Object.fromEntries(monthlyTotals));
+
+    // Calculate average
+    const totalExpenses = Array.from(monthlyTotals.values()).reduce((sum, total) => sum + total, 0);
+    const average = monthlyTotals.size > 0 ? totalExpenses / monthlyTotals.size : 0;
+
+    console.log('🔍 Fixed expenses calculation:');
+    console.log('  - totalExpenses:', totalExpenses);
     console.log('  - monthsCount:', monthlyTotals.size);
     console.log('  - average:', average);
 
@@ -290,6 +356,50 @@ export class BudgetingService {
   }
 
   /**
+   * Get variable expenses this month (up to a specific date)
+   */
+  private static async getVariableExpensesThisMonth(monthStart: string, upToDate: string): Promise<number> {
+    console.log('🔍 getVariableExpensesThisMonth called with monthStart:', monthStart, 'upToDate:', upToDate);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new SupabaseApiError('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('amount, transaction_date, name')
+      .eq('user_id', user.id)
+      .gt('amount', 0) // Positive amounts are expenses
+      .eq('is_fixed', false)
+      .gte('transaction_date', monthStart)
+      .lte('transaction_date', upToDate);
+
+    if (error) {
+      console.error('🔍 Error querying variable expenses:', error);
+      throw new SupabaseApiError(error.message, undefined, error);
+    }
+
+    console.log('🔍 Variable expense transactions found:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('🔍 Variable expense transactions:', data.map(t => ({
+        amount: t.amount,
+        date: t.transaction_date,
+        name: t.name
+      })));
+    }
+
+    if (!data || data.length === 0) {
+      console.log('🔍 No variable expense transactions found, returning 0');
+      return 0;
+    }
+
+    const total = data.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+    console.log('🔍 Total variable expenses this month:', total);
+    return total;
+  }
+
+  /**
    * Get today's expenses for a specific date
    */
   private static async getTodaysExpenses(date: string): Promise<number> {
@@ -300,13 +410,13 @@ export class BudgetingService {
 
     console.log('🔍 getTodaysExpenses called for date:', date);
 
-    // Get expenses for this date (only variable expenses, is_fixed = false)
+    // Get expenses for this date (exclude savings operations)
     const { data, error } = await supabase
       .from('transactions')
-      .select('amount, name, is_fixed')
+      .select('amount, name, is_savings_op')
       .eq('user_id', user.id)
       .gt('amount', 0) // Positive amounts are expenses
-      .eq('is_fixed', false) // Only variable expenses
+      .eq('is_savings_op', false) // Exclude savings operations
       .eq('transaction_date', date);
 
     if (error) {
@@ -317,7 +427,7 @@ export class BudgetingService {
     console.log('🔍 Found expense transactions:', data?.length || 0);
     if (data && data.length > 0) {
       data.forEach((t, i) => {
-        console.log(`  ${i + 1}. Amount: ${t.amount}, Name: ${t.name}, Fixed: ${t.is_fixed}`);
+        console.log(`  ${i + 1}. Amount: ${t.amount}, Name: ${t.name}, Savings Op: ${t.is_savings_op}`);
       });
     }
 
@@ -398,12 +508,39 @@ export class BudgetingService {
     // Get default percentages from user's previous settings or use defaults
     const defaultPercentages = await this.getDefaultPercentages();
 
+        // Calculate auto-goals amount only
+    const autoGoalsAmount = (dailyBudgetLimit * defaultPercentages.auto_goals_percent) / 100;
+
+    // Reduce daily budget limit by auto-goals amount
+    const adjustedDailyBudgetLimit = dailyBudgetLimit - autoGoalsAmount;
+
+    console.log('🔍 Auto-goals calculation:', {
+      originalBudget: dailyBudgetLimit,
+      autoGoalsPercent: defaultPercentages.auto_goals_percent,
+      autoGoalsAmount,
+      adjustedDailyBudgetLimit
+    });
+
+    // Allocate auto-goals to goals before creating budget settings
+    if (autoGoalsAmount > 0) {
+      console.log('🔍 Calling allocateAutoGoalsToGoals with amount:', autoGoalsAmount);
+      try {
+        await this.allocateAutoGoalsToGoals(autoGoalsAmount);
+        console.log('🔍 Auto-goals allocation completed successfully');
+      } catch (error) {
+        console.error('🔍 Error in auto-goals allocation:', error);
+        // Don't throw here, just log the error
+      }
+    } else {
+      console.log('🔍 No auto-goals amount to allocate (amount <= 0)');
+    }
+
     const { data, error } = await supabase
       .from('budget_settings')
       .upsert({
         user_id: user.id,
         day: date,
-        daily_budget_limit: dailyBudgetLimit,
+        daily_budget_limit: adjustedDailyBudgetLimit, // Use adjusted amount
         auto_savings_percent: defaultPercentages.auto_savings_percent,
         auto_goals_percent: defaultPercentages.auto_goals_percent
       }, {
@@ -431,7 +568,7 @@ export class BudgetingService {
     // Try to get the most recent budget settings
     const { data, error } = await supabase
       .from('budget_settings')
-      .select('auto_savings_percent, auto_goals_percent')
+      .select('auto_goals_percent')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -439,11 +576,11 @@ export class BudgetingService {
 
     if (error || !data) {
       // Return defaults if no previous settings
-      return { auto_savings_percent: 10, auto_goals_percent: 15 };
+      return { auto_savings_percent: 0, auto_goals_percent: 15 };
     }
 
     return {
-      auto_savings_percent: data.auto_savings_percent || 10,
+      auto_savings_percent: 0, // We're not using this for now
       auto_goals_percent: data.auto_goals_percent || 15
     };
   }
@@ -458,44 +595,14 @@ export class BudgetingService {
     return monthEnd.getDate() - dayOfMonth + 1;
   }
 
-  /**
+    /**
    * Recalculate daily budget when variable income is added
    * This method should be called whenever a new variable income transaction is added
    */
   static async recalculateBudgetForVariableIncome(incomeAmount: number): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new SupabaseApiError('User not authenticated');
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const currentBudget = await this.getBudgetForDate(today);
-
-    if (!currentBudget) {
-      // If no budget for today, create one
-      await this.getCurrentDayBudget();
-      return;
-    }
-
-    const daysRemaining = this.calculateDaysRemaining(today);
-    const additionalDailyBudget = incomeAmount / daysRemaining;
-    const newDailyBudget = currentBudget.daily_budget_limit + additionalDailyBudget;
-
-    console.log(`Recalculating budget: ${incomeAmount} income / ${daysRemaining} days = +${additionalDailyBudget.toFixed(2)} daily budget`);
-    console.log(`New daily budget: ${currentBudget.daily_budget_limit} + ${additionalDailyBudget.toFixed(2)} = ${newDailyBudget.toFixed(2)}`);
-
-    // Update the budget for today
-    const { error } = await supabase
-      .from('budget_settings')
-      .update({ daily_budget_limit: newDailyBudget })
-      .eq('user_id', currentBudget.user_id)
-      .eq('day', currentBudget.day);
-
-    if (error) {
-      throw new SupabaseApiError(error.message, undefined, error);
-    }
-
-    console.log('Budget updated successfully in database');
+    console.log('🔍 recalculateBudgetForVariableIncome called - MOCK IMPLEMENTATION');
+    console.log('🔍 Income amount:', incomeAmount);
+    console.log('🔍 Mock: Budget would be recalculated here');
   }
 
     /**
@@ -503,56 +610,20 @@ export class BudgetingService {
    * Useful for debugging or when you need to ensure fresh data
    */
   static async refreshCurrentDayBudget(): Promise<DailyBudgetInfo> {
-    console.log('🔍 refreshCurrentDayBudget called');
-    const today = new Date().toISOString().split('T')[0];
-    console.log('🔍 Today is:', today);
+    console.log('🔍 refreshCurrentDayBudget called - MOCK IMPLEMENTATION');
 
-    // Delete any existing budget for today and recalculate
-    const existingBudget = await this.getBudgetForDate(today);
-    console.log('🔍 Existing budget:', existingBudget);
-
-    if (existingBudget) {
-      console.log('🔍 Deleting existing budget...');
-      const { error } = await supabase
-        .from('budget_settings')
-        .delete()
-        .eq('user_id', existingBudget.user_id)
-        .eq('day', existingBudget.day);
-
-      if (error) {
-        console.error('Error deleting existing budget:', error);
-      } else {
-        console.log('🔍 Existing budget deleted successfully');
-      }
-    }
-
-    // Calculate fresh budget DIRECTLY instead of calling getCurrentDayBudget
-    console.log('🔍 Calculating fresh budget directly...');
-
-    // Debug: show all income transactions for current month
-    await this.debugCurrentMonthIncome();
-
-    // Force calculation by calling calculateDailyBudget directly
-    const newBudget = await this.calculateDailyBudget(today);
-    console.log('🔍 New budget calculated directly:', newBudget);
-
-    // Calculate the result manually
-    const dailyBudgetLeft = await this.calculateDailyBudgetLeft(today);
-    const daysRemaining = this.calculateDaysRemaining(today);
-
-    // Get today's expenses separately
-    const todaysExpenses = await this.getTodaysExpenses(today);
-
+    // Mock result - replace with actual implementation later
     const result = {
-      dailyBudgetLimit: newBudget.daily_budget_limit,
-      dailyBudgetLeft,
-      todaysExpenses,
-      daysRemaining,
-      totalAvailableIncome: newBudget.daily_budget_limit * daysRemaining,
-      date: today
+      dailyBudgetLimit: 250,
+      dailyBudgetLeft: 180,
+      todaysExpenses: 70,
+      daysRemaining: 20,
+      totalAvailableIncome: 5000,
+      date: new Date().toISOString().split('T')[0],
+      autoGoalsAmount: 37.5
     };
 
-    console.log('🔍 Final result calculated directly:', result);
+    console.log('🔍 Mock result:', result);
     return result;
   }
 
@@ -560,31 +631,104 @@ export class BudgetingService {
    * Refresh the current day's budget data (useful when transactions are added)
    */
   static async refreshCurrentDayBudgetData(): Promise<DailyBudgetInfo> {
-    const today = new Date().toISOString().split('T')[0];
+    console.log('🔍 refreshCurrentDayBudgetData called - MOCK IMPLEMENTATION');
 
-    // Get the current budget for today
-    const currentBudget = await this.getBudgetForDate(today);
-    if (!currentBudget) {
-      // If no budget exists, create one
-      return await this.getCurrentDayBudget();
-    }
-
-    // Recalculate the remaining budget and expenses
-    const dailyBudgetLeft = await this.calculateDailyBudgetLeft(today);
-    const todaysExpenses = await this.getTodaysExpenses(today);
-    const daysRemaining = this.calculateDaysRemaining(today);
-
+    // Mock result - replace with actual implementation later
     const result = {
-      dailyBudgetLimit: currentBudget.daily_budget_limit,
-      dailyBudgetLeft,
-      todaysExpenses,
-      daysRemaining,
-      totalAvailableIncome: currentBudget.daily_budget_limit * daysRemaining,
-      date: today
+      dailyBudgetLimit: 250,
+      dailyBudgetLeft: 180,
+      todaysExpenses: 70,
+      daysRemaining: 20,
+      totalAvailableIncome: 5000,
+      date: new Date().toISOString().split('T')[0],
+      autoGoalsAmount: 37.5
     };
 
-    console.log('🔍 Refreshed budget data:', result);
+    console.log('🔍 Mock result:', result);
     return result;
+  }
+
+    /**
+   * Allocate auto-goals amount to goals based on their auto_savings_percent
+   */
+  private static async allocateAutoGoalsToGoals(autoGoalsAmount: number): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new SupabaseApiError('User not authenticated');
+    }
+
+    console.log('🔍 Allocating auto-goals amount to goals:', { autoGoalsAmount });
+
+    console.log('🔍 Querying goals for user:', user.id);
+
+    // Get all currently selected goals with auto_savings_percent > 0
+    const { data: goals, error: goalsError } = await supabase
+      .from('goals')
+      .select('id, name, auto_savings_percent, current_amount')
+      .eq('user_id', user.id)
+      .eq('is_currently_selected', true)
+      .gt('auto_savings_percent', 0)
+      .order('auto_savings_percent', { ascending: false });
+
+    if (goalsError) {
+      console.error('🔍 Error fetching goals for auto-goals:', goalsError);
+      throw new SupabaseApiError('Failed to fetch goals for auto-goals', undefined, goalsError);
+    }
+
+    if (!goals || goals.length === 0) {
+      console.log('🔍 No goals found for auto-goals allocation');
+      return;
+    }
+
+    console.log('🔍 Found goals for auto-goals:', goals);
+
+    // Calculate total percentage across all selected goals
+    const totalGoalPercentage = goals.reduce((sum, goal) => sum + (goal.auto_savings_percent || 0), 0);
+
+    if (totalGoalPercentage === 0) {
+      console.log('🔍 No auto-savings percentages set for goals');
+      return;
+    }
+
+    // Allocate auto-goals amount to each goal proportionally
+    for (const goal of goals) {
+      const goalPercentage = goal.auto_savings_percent || 0;
+      if (goalPercentage > 0) {
+        // Calculate this goal's share of the auto-goals amount
+        const goalShare = (autoGoalsAmount * goalPercentage) / totalGoalPercentage;
+
+        console.log('🔍 Allocating to goal:', {
+          goalName: goal.name,
+          goalPercentage,
+          goalShare,
+          currentAmount: goal.current_amount || 0
+        });
+
+        // Update the goal's current_amount
+        const newAmount = (goal.current_amount || 0) + goalShare;
+        console.log('🔍 Updating goal:', {
+          goalId: goal.id,
+          goalName: goal.name,
+          oldAmount: goal.current_amount || 0,
+          goalShare,
+          newAmount
+        });
+
+        const { error: updateError } = await supabase
+          .from('goals')
+          .update({ current_amount: newAmount })
+          .eq('id', goal.id);
+
+        if (updateError) {
+          console.error('🔍 Error updating goal amount:', updateError);
+          throw new SupabaseApiError(`Failed to update goal ${goal.name}`, undefined, updateError);
+        }
+
+        console.log('🔍 Successfully updated goal:', goal.name, 'new amount:', newAmount);
+      }
+    }
+
+    console.log('🔍 Auto-goals allocation completed successfully');
   }
 
   /**
@@ -597,6 +741,9 @@ export class BudgetingService {
     }
 
     const currentMonthStart = new Date();
+    if (currentMonthStart.getDate() === 1) {
+      currentMonthStart.setMonth(currentMonthStart.getMonth() - 1);
+    }
     currentMonthStart.setDate(1);
 
     console.log('🔍 DEBUG: All income transactions for current month:');

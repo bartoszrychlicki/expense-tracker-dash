@@ -82,6 +82,7 @@ export async function fetchRecentTransactions(): Promise<Transaction[]> {
     .from('transactions')
     .select('*')
     .eq('user_id', user.id)
+    .eq('is_savings_op', false) // Exclude savings operations
     .order('created_at', { ascending: false })
     .limit(API_CONFIG.TRANSACTIONS_LIMIT);
 
@@ -184,65 +185,91 @@ export async function addTransaction(transaction: NewTransaction): Promise<Trans
 
   const now = new Date().toISOString();
 
-  const insertData: any = {
-    user_id: user.id,
-    name: transaction.name,
-    amount: transaction.value, // Store the actual signed value (negative = income, positive = expense)
-    transaction_date: transaction.date || now.split('T')[0],
-  };
+  // Determine where to save the transaction based on is_fixed flag
+  if (transaction.is_fixed) {
+    // Save as recurring transaction
+    const insertData: any = {
+      user_id: user.id,
+      name: transaction.name,
+      amount: transaction.value,
+    };
 
-  if (transaction.category) {
-    insertData.category = transaction.category;
-  }
-  if (transaction.fromAccountId) {
-    insertData.from_account_id = transaction.fromAccountId;
-  }
-  if (transaction.toAccountId) {
-    insertData.to_account_id = transaction.toAccountId;
-  }
-  if (transaction.is_fixed !== undefined) {
-    insertData.is_fixed = transaction.is_fixed;
-  }
+    console.log('Inserting recurring transaction data:', insertData);
 
-  console.log('Inserting transaction data:', insertData);
+    const { data, error } = await supabase
+      .from('recurring_transactions')
+      .insert(insertData)
+      .select('*')
+      .single();
 
-  const { data, error } = await supabase
-    .from('transactions')
-    .insert(insertData)
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error('Supabase insert error:', error);
-    throw new SupabaseApiError(error.message, undefined, error);
-  }
-
-  console.log('Transaction inserted successfully:', data);
-
-  // If this is variable income (negative amount and not fixed), recalculate the daily budget
-  if (transaction.value < 0 && !transaction.is_fixed) {
-    try {
-      await BudgetingService.recalculateBudgetForVariableIncome(Math.abs(transaction.value));
-      console.log('Budget recalculated for variable income:', Math.abs(transaction.value));
-    } catch (error) {
-      console.error('Error recalculating budget for variable income:', error);
-      // Don't throw here - the transaction was successful, budget recalculation is secondary
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new SupabaseApiError(error.message, undefined, error);
     }
-  }
 
-  // If this is a variable expense (positive amount and not fixed), the budget display should refresh
-  // The budget amount doesn't change, but the remaining amount does
-  if (transaction.value > 0 && !transaction.is_fixed) {
-    console.log('Variable expense added, budget display should refresh');
-  }
+    console.log('Recurring transaction inserted successfully:', data);
 
-  return {
-    id: data.id,
-    Name: data.name || '',
-    Ai_Category: data.category || '',
-    Value: data.amount?.toString() || '0', // Return the actual signed value
-    Date: data.transaction_date || now.split('T')[0],
-  };
+    // Return in the expected format
+    return {
+      id: data.id,
+      Name: data.name || '',
+      Ai_Category: '',
+      Value: data.amount?.toString() || '0',
+      Date: now.split('T')[0],
+    };
+  } else {
+    // Save as regular transaction with is_savings_op = false
+    const insertData: any = {
+      user_id: user.id,
+      name: transaction.name,
+      amount: transaction.value,
+      transaction_date: transaction.date || now.split('T')[0],
+      is_savings_op: false, // Regular transactions are not savings operations
+    };
+
+    if (transaction.category) {
+      insertData.category = transaction.category;
+    }
+
+    console.log('Inserting regular transaction data:', insertData);
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(insertData)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new SupabaseApiError(error.message, undefined, error);
+    }
+
+    console.log('Regular transaction inserted successfully:', data);
+
+    // If this is variable income (negative amount), recalculate the daily budget
+    if (transaction.value < 0) {
+      try {
+        await BudgetingService.recalculateBudgetForVariableIncome(Math.abs(transaction.value));
+        console.log('Budget recalculated for variable income:', Math.abs(transaction.value));
+      } catch (error) {
+        console.error('Error recalculating budget for variable income:', error);
+        // Don't throw here - the transaction was successful, budget recalculation is secondary
+      }
+    }
+
+    // If this is a variable expense (positive amount), the budget display should refresh
+    if (transaction.value > 0) {
+      console.log('Variable expense added, budget display should refresh');
+    }
+
+    return {
+      id: data.id,
+      Name: data.name || '',
+      Ai_Category: data.category || '',
+      Value: data.amount?.toString() || '0',
+      Date: data.transaction_date || now.split('T')[0],
+    };
+  }
 }
 
 /**

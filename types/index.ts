@@ -88,7 +88,7 @@ export interface DailyBudget {
  * Represents daily budget information from BudgetingService
  */
 export interface DailyBudgetInfo {
-  /** Daily budget limit amount */
+  /** Daily budget limit amount (after auto-goals deduction) */
   dailyBudgetLimit: number;
   /** Amount of daily budget left for today */
   dailyBudgetLeft: number;
@@ -100,6 +100,8 @@ export interface DailyBudgetInfo {
   totalAvailableIncome: number;
   /** Date for this budget calculation */
   date: string;
+  /** Auto-goals amount deducted from daily budget */
+  autoGoalsAmount?: number;
 }
 
 /**
@@ -261,8 +263,46 @@ export interface NewTransaction extends BaseTransactionData {
   fromAccountId?: string;
   /** Optional to account ID (for transfers) */
   toAccountId?: string;
-  /** Whether this is a fixed expense (vs variable) */
+  /** Whether this is a fixed/recurring transaction */
   is_fixed?: boolean;
+}
+
+/**
+ * Represents a transaction from the Supabase database
+ */
+export interface SupabaseTransaction {
+  /** Unique identifier for the transaction */
+  id: string;
+  /** User ID who owns this transaction */
+  user_id: string;
+  /** Name/description of the transaction */
+  name: string;
+  /** Amount of the transaction (positive for expenses, negative for income) */
+  value: number;
+  /** Date of the transaction */
+  transaction_date: string;
+  /** Whether this is a savings operation (excluded from expense calculations) */
+  is_savings_op: boolean;
+  /** When this transaction was created */
+  created_at: string;
+  /** When this transaction was last updated */
+  updated_at: string;
+}
+
+/**
+ * Represents a recurring transaction from the Supabase database
+ */
+export interface RecurringTransaction {
+  /** Unique identifier for the recurring transaction */
+  id: string;
+  /** User ID who owns this recurring transaction */
+  user_id: string;
+  /** Name/description of the recurring transaction */
+  name: string;
+  /** Amount of the recurring transaction (negative for income, positive for expenses) */
+  amount: number;
+  /** When this recurring transaction was last updated */
+  updated_at: string;
 }
 
 /**

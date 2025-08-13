@@ -120,12 +120,22 @@ export const DailyBudgetDisplay: React.FC<DailyBudgetDisplayProps> = ({
           </Text>
         </HStack>
 
-        <HStack className="justify-between items-center">
+        <HStack className="justify-between items-center mb-2">
           <Text className="text-sm text-text-500">Całkowity dostępny budżet:</Text>
           <Text className="text-sm font-medium text-text-700">
             {Math.floor(dailyBudget.totalAvailableIncome)} PLN
           </Text>
         </HStack>
+
+                {/* Auto-Goals Information */}
+        {dailyBudget.autoGoalsAmount && dailyBudget.autoGoalsAmount > 0 && (
+          <HStack className="justify-between items-center">
+            <Text className="text-sm text-text-500">Automatyczne cele oszczędnościowe:</Text>
+            <Text className="text-sm font-medium text-success-600">
+              {Math.floor(dailyBudget.autoGoalsAmount)} PLN
+            </Text>
+          </HStack>
+        )}
       </VStack>
     </VStack>
   );
