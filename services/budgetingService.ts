@@ -293,6 +293,33 @@ export class BudgetingService {
   }
 
     /**
+   * Creates a one-off savings transaction (manual save to goals) and allocates it across selected goals
+   */
+  static async saveToGoals(amount: number): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new SupabaseApiError('User not authenticated');
+    }
+
+    const today = BudgetingService.formatLocalDate(new Date());
+
+    // Create a savings operation transaction (manual)
+    const { error: insertError } = await supabase.from('transactions').insert({
+      user_id: user.id,
+      name: 'Ręczne odłożenie na cele',
+      amount: amount,
+      transaction_date: today,
+      is_savings_op: true,
+    });
+    if (insertError) {
+      throw new SupabaseApiError('Failed to create manual goals saving transaction', undefined, insertError);
+    }
+
+    // Allocate to goals proportionally using the same logic as auto-goals
+    await BudgetingService.allocateAutoGoalsToGoals(amount);
+  }
+
+    /**
    * Allocate auto-goals amount to goals based on their auto_savings_percent
    */
   private static async allocateAutoGoalsToGoals(autoGoalsAmount: number): Promise<void> {
@@ -493,23 +520,32 @@ export class BudgetingService {
     const autoGoalsAmount = (autoTx || []).reduce((sum: number, t: any) => t.name === 'Automatyczne cele' ? sum + (t.amount || 0) : sum, 0);
     const dailyBudgetLimit = baseDailyLimit - autoSavingsAmount - autoGoalsAmount;
 
-    // Today's variable expenses (exclude savings ops, exclude incomes)
+    // Today's expenses for remaining budget calculation
     const { data: txToday, error: txTodayError } = await supabase
       .from('transactions')
-      .select('amount, is_savings_op')
+      .select('amount, is_savings_op, name')
       .eq('user_id', user.id)
       .eq('transaction_date', date);
     if (txTodayError) {
       throw new SupabaseApiError('Failed to load today transactions', undefined, txTodayError);
     }
 
-    const todaysExpenses = (txToday || []).reduce((sum: number, t: any) => {
+    // Normal variable expenses (positive, non-savings)
+    const normalExpensesToday = (txToday || []).reduce((sum: number, t: any) => {
       const amount = t.amount || 0;
-      if (!t.is_savings_op && amount > 0) {
-        return sum + amount;
-      }
+      if (!t.is_savings_op && amount > 0) return sum + amount;
       return sum;
     }, 0);
+
+    // Manual savings (positive savings ops excluding today's auto ops)
+    const manualSavingsToday = (txToday || []).reduce((sum: number, t: any) => {
+      const amount = t.amount || 0;
+      const isAuto = t.name === 'Automatyczne oszczędzanie' || t.name === 'Automatyczne cele';
+      if (t.is_savings_op && !isAuto && amount > 0) return sum + amount;
+      return sum;
+    }, 0);
+
+    const todaysExpenses = normalExpensesToday + manualSavingsToday;
 
     // We already computed autoGoalsAmount from settings-derived base and percents
 

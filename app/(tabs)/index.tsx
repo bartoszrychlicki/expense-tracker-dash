@@ -18,7 +18,8 @@ import { useCurrentGoal } from '@/hooks/useCurrentGoal';
 import { useDailyBudget } from '@/hooks/useDailyBudget';
 import { useToast } from '@/hooks/useToast';
 import { useTransactions } from '@/hooks/useTransactions';
-import { createGoalTransaction } from '@/services/airtableService';
+// import { createGoalTransaction } from '@/services/airtableService';
+import { BudgetingService } from '@/services/budgetingService';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
@@ -85,22 +86,22 @@ export default function Index() {
    * Handles saving to goal
    */
   const handleSaveToGoal = async (amount: number) => {
-    if (!currentGoal || isSavingToGoal) return;
+    if (isSavingToGoal) return;
 
     setIsSavingToGoal(true);
     try {
-      await createGoalTransaction(currentGoal.name, amount);
+      await BudgetingService.saveToGoals(amount);
 
       // Refresh all data after successful transaction
       await Promise.all([
-        refreshCurrentDayBudget(), // Refresh budget data to show updated expenses
+        refreshCurrentDayBudget(),
         refreshTransactions(),
         refreshGoalData(),
       ]);
 
       toast.showSuccess(
         'Środki odłożone!',
-        `Odłożono ${amount} PLN na cel: ${currentGoal.name}`
+        `Odłożono ${amount} PLN na cele`
       );
     } catch (error) {
       console.error('Error saving to goal:', error);
